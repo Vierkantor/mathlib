@@ -1159,3 +1159,21 @@ Lift an expression to another type.
   specify it again as the third argument to `with`, like this: `lift n to ℕ using h with n rfl h`.
 * More generally, this can lift an expression from `α` to `β` assuming that there is an instance
   of `can_lift α β`. In this case the proof obligation is specified by `can_lift.cond`.
+
+### reduce_projections
+
+* The `@[reduce_projections]` attribute automatically derives lemmas specifying the projections of the declaration.
+* Example:
+  ```
+  @[reduce_projections] def refl (α) : α ≃ α := ⟨id, id, λ x, rfl, λ x, rfl⟩
+  ```
+  derives two simp-lemmas:
+  ```
+  @[simp] refl_to_fun (α) : (refl α).to_fun = id
+  @[simp] refl_inv_fun (α) : (refl α).inv_fun = id
+  ```
+* It does not derive simp-lemmas for the prop-valued projections.
+
+* You can use `@[reduce_projections no_simp]` to derive the lemmas, but not mark them as simp-lemmas.
+
+* If one of the projections is marked as a coercion, the generated lemmas do *not* use this coercion.
