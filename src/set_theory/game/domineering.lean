@@ -5,6 +5,8 @@ Authors: Scott Morrison
 -/
 import set_theory.game.short
 import tactic.norm_num
+import tactic.linarith
+import tactic.tidy
 
 /-!
 # Domineering as a combinatorial game.
@@ -37,6 +39,9 @@ def left  (b : finset (ℤ × ℤ)) : Type := { p | p ∈ b ∩ b.map shift_up }
 /-- Right can play anywhere that a square and the square to the right are open. -/
 def right (b : finset (ℤ × ℤ)) : Type := { p | p ∈ b ∩ b.map shift_right }
 
+def left_empty_equiv : left ∅ ≃ pempty := by tidy
+def right_empty_equiv : right ∅ ≃ pempty := by tidy
+
 instance fintype_left (b : finset (ℤ × ℤ)) : fintype (left b) :=
 fintype.subtype _ (λ x, iff.refl _)
 
@@ -57,7 +62,7 @@ lemma int.pred_ne_self (n : ℤ) : n - 1 ≠ n :=
 λ h, one_ne_zero (neg_inj ((add_left_inj n).mp (by { convert h, simp })))
 
 -- TODO Golf?
-lemma move_left_card (b : finset (ℤ × ℤ)) (m : left b) :
+@[simp] lemma move_left_card (b : finset (ℤ × ℤ)) (m : left b) :
   finset.card (move_left b m) = finset.card b - 2 :=
 begin
   erw finset.card_erase_of_mem,
@@ -74,7 +79,7 @@ begin
       convert w,
       simp, } }
 end
-lemma move_right_card (b : finset (ℤ × ℤ)) (m : right b) :
+@[simp] lemma move_right_card (b : finset (ℤ × ℤ)) (m : right b) :
   finset.card (move_right b m) = finset.card b - 2 :=
 begin
   erw finset.card_erase_of_mem,
@@ -108,91 +113,22 @@ open domineering_aux
 
 instance : has_well_founded (finset (ℤ × ℤ)) := ⟨measure finset.card, measure_wf finset.card⟩
 
-/-
-# Implementation note:
-It would be nice to just give the definition:
-```
-def domineering : finset (ℤ × ℤ) → pgame
-| b := pgame.mk
-    (left b) (right b)
-    (λ m, have _, from move_left_smaller b m,  domineering (move_left b m))
-    (λ m, have _, from move_right_smaller b m, domineering (move_right b m))
-```
-And indeed that works, but I couldn't make it computational -- that is, I couldn't produce an
-instance of `short (domineering b)` that would reduce during `dec_trivial`.
-It appears that the reason for this is that this definition uses well-founded recursion,
-and we can't definitionally unfold --- only propositionally.
-
-Instead, we give the following auxiliary definition, which puts the fact that the number of
-board squares decreases at each step front and center.
--/
-
-/-- An auxiliary definition for the construction of domineering games. -/
-def domineering' : Π (n : ℕ) (b : finset (ℤ × ℤ)), b.card = n → pgame
-| 0 b _ := pgame.mk (left b) (right b) (λ m, 0) (λ m, 0)
-| 1 b _ := pgame.mk (left b) (right b) (λ m, 0) (λ m, 0)
-| (n + 2) b h :=
+def domineering' (n : ℕ) : Π (b : finset (ℤ × ℤ)), b.card = n → pgame :=
+nat.strong_rec' (λ n IH b h,
   pgame.mk (left b) (right b)
-    (λ m, domineering' n (move_left b m) begin have t := (move_left_card b m), rw h at t, simp at t, exact t, end )
-    (λ m, domineering' n (move_right b m) begin have t := (move_right_card b m), rw h at t, simp at t, exact t, end)
+    (λ m, IH _ (by rw ← h; apply move_left_smaller) (move_left b m) rfl)
+    (λ m, IH _ (by rw ← h; apply move_right_smaller) (move_right b m) rfl)) n
 
 /-- We construct a domineering game from any finite subset of `ℤ × ℤ`. -/
 def domineering (b : finset (ℤ × ℤ)) : pgame :=
 domineering' b.card b rfl
-
--- We now prove that this definition is that same as the nicer non-computational one.
--- This is grungy!
-
-lemma domineering_def' : Π (n : ℕ) (b : finset (ℤ × ℤ)) (h : b.card = n),
-  domineering b = pgame.mk
-    (left b) (right b)
-    (λ m, domineering (move_left b m))
-    (λ m, domineering (move_right b m))
-| 0 b h :=
-  begin
-    conv { to_lhs, dsimp [domineering] },
-    simp only [h],
-    dsimp [domineering'],
-    congr;
-    { funext, exfalso, rcases b with ⟨⟨⟨⟩⟩⟩, rcases m with ⟨_,⟨_⟩⟩, rcases h with ⟨_⟩, },
-  end
-| 1 b h :=
-  begin
-    conv { to_lhs, dsimp [domineering] },
-    simp only [h],
-    dsimp [domineering'],
-    congr,
-    { funext, exfalso,
-      rcases b with ⟨⟨⟨⟩|⟨hd,⟨⟩|⟨hd',tl⟩⟩⟩⟩,
-      { rcases m with ⟨_,⟨_⟩⟩, },
-      { rcases m with ⟨_,m⟩, simp at m, rcases m with ⟨rfl,⟨a,b,⟨rfl,m⟩⟩⟩,
-        injection m with m₁ m₂, dsimp at m₂,
-        exact int.succ_ne_self b m₂, },
-    { rcases h with ⟨_⟩, } },
-      { funext, exfalso,
-      rcases b with ⟨⟨⟨⟩|⟨hd,⟨⟩|⟨hd',tl⟩⟩⟩⟩,
-      { rcases m with ⟨_,⟨_⟩⟩, },
-      { rcases m with ⟨_,m⟩, simp at m, rcases m with ⟨rfl,⟨a,b,⟨rfl,m⟩⟩⟩,
-        injection m with m₁ m₂, dsimp at m₁,
-        exact int.succ_ne_self a m₁, },
-      { rcases h with ⟨_⟩, } },
-  end
-| (n+2) b h :=
-  begin
-    conv { to_lhs, dsimp [domineering] },
-    simp only [h],
-    dsimp [domineering'],
-    congr,
-    { funext, dsimp [domineering], congr, rw [move_left_card, h], simp },
-    { funext, dsimp [domineering], congr, rw [move_right_card, h], simp },
-  end
 
 lemma domineering_def (b : finset (ℤ × ℤ)) :
   domineering b = pgame.mk
     (left b) (right b)
     (λ m, domineering (move_left b m))
     (λ m, domineering (move_right b m)) :=
-domineering_def' b.card b rfl
+by rw [domineering, domineering', nat.strong_rec']; refl
 
 def domineering_left_moves (b : finset (ℤ × ℤ)) :
   (domineering b).left_moves ≃ left b :=
@@ -214,25 +150,39 @@ two lemmas. Now I can't, which is frustrating.
 
 instance fintype_left_moves' : Π (n : ℕ) (b : finset (ℤ × ℤ)) (h : b.card = n), fintype ((domineering' n b h).left_moves)
 | 0 b h := domineering_aux.fintype_left b
-| 1 b h := domineering_aux.fintype_left b
-| (n+2) b _ := domineering_aux.fintype_left b
+| (n+1) b _ := domineering_aux.fintype_left b
 
 instance fintype_left_moves (b : finset (ℤ × ℤ)) : fintype ((domineering b).left_moves) :=
 by { dsimp [domineering], apply_instance }
 
 instance fintype_right_moves' : Π (n : ℕ) (b : finset (ℤ × ℤ)) (h : b.card = n), fintype ((domineering' n b h).right_moves)
 | 0 b h := domineering_aux.fintype_right b
-| 1 b h := domineering_aux.fintype_right b
-| (n+2) b _ := domineering_aux.fintype_right b
+| (n+1) b _ := domineering_aux.fintype_right b
 
 instance fintype_right_moves (b : finset (ℤ × ℤ)) : fintype ((domineering b).right_moves) :=
 by { dsimp [domineering], apply_instance }
 
 /-- Domineering is always a short game, because the board is finite. -/
 instance short_domineering' : Π (n : ℕ) (b : finset (ℤ × ℤ)) (h : b.card = n), short (domineering' n b h)
-| 0 b h := by fsplit; { intros, apply_instance }
-| 1 b h := by fsplit; { intros, apply_instance }
-| (n+2) b _ := by fsplit; { intro i, apply short_domineering', }
+| 0 b h :=
+  begin
+    rw [domineering', nat.strong_rec'],
+    dsimp,
+    replace h : b = ∅ := finset.card_eq_zero.mp h,
+    subst h,
+    apply short_of_equiv_empty; dsimp,
+    exact left_empty_equiv,
+    exact right_empty_equiv,
+  end
+| (n+1) b h :=
+  begin
+    fsplit;
+    { intro i,
+      convert (have n - 1 < n + 1 := nat.sub_lt_succ n 1, short_domineering' (n-1) _ _),
+      simp [h],
+      exact nat.sub_lt_succ n 1,
+      simp [h], },
+  end
 
 instance short_domineering (b : finset (ℤ × ℤ)) : short (domineering b) :=
 by { dsimp [domineering], apply_instance }
