@@ -13,6 +13,7 @@ Introduces notations
 -/
 
 import category_theory.functor
+import tactic.reassoc_axiom
 
 namespace category_theory
 
@@ -26,14 +27,14 @@ include 𝒞 𝒟
 
 The field `app` provides the components of the natural transformation.
 
-Naturality is expressed by `α.naturality_lemma`.
+Naturality is expressed by `α.naturality`.
 -/
 structure nat_trans (F G : C ⥤ D) : Sort (max (u₁+1) v₂) :=
 (app : Π X : C, (F.obj X) ⟶ (G.obj X))
 (naturality' : ∀ {{X Y : C}} (f : X ⟶ Y), (F.map f) ≫ (app Y) = (app X) ≫ (G.map f) . obviously)
 
 restate_axiom nat_trans.naturality'
-attribute [simp] nat_trans.naturality
+attribute [simp, reassoc] nat_trans.naturality
 
 namespace nat_trans
 
@@ -51,12 +52,7 @@ variables {F G H I : C ⥤ D}
 
 /-- `vcomp α β` is the vertical compositions of natural transformations. -/
 def vcomp (α : nat_trans F G) (β : nat_trans G H) : nat_trans F H :=
-{ app         := λ X, (α.app X) ≫ (β.app X),
-  naturality' :=
-  begin
-    /- `obviously'` says: -/
-    intros, simp, rw [←assoc, naturality, assoc, ←naturality],
-  end }
+{ app         := λ X, (α.app X) ≫ (β.app X) }
 
 -- We'll want to be able to prove that two natural transformations are equal if they are componentwise equal.
 @[extensionality] lemma ext {α β : nat_trans F G} (w : ∀ X : C, α.app X = β.app X) : α = β :=
