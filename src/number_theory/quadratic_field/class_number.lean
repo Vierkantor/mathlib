@@ -248,6 +248,9 @@ theorem of_matrix_to_matrix (f : quadratic_form) : of_matrix (to_matrix f) = f :
 eq_of_eval_matrix_eq _ _ (of_matrix_pre_to_matrix f) (eval_to_matrix f)
 end eval
 
+lemma injective_to_matrix : function.injective to_matrix :=
+function.injective_of_left_inverse of_matrix_to_matrix
+
 section matrix_action
 local attribute [simp] matrix.mul_val
 /--
@@ -353,6 +356,17 @@ by rw
     ]
 
 /--
+  The identity matrix gives the identity action.
+-/
+lemma matrix_action_identity (f : quadratic_form) : matrix_action 1 f = f := begin
+apply injective_to_matrix,
+simp [symm (matrix_action_to_matrix 1 f), matrix_action_matrix]
+end
+
+end matrix_action
+
+section discr
+/--
   The discriminant of a quadratic form.
 -/
 def discr (form : quadratic_form) : ℤ := form.b^2 - 4 * form.a * form.c
@@ -384,7 +398,37 @@ theorem det_invariant_for_SL (f : quadratic_form) (M : SL₂ℤ) : (M.1 · f).di
   by rw [matrix.det_mul, matrix.det_mul, matrix.det_transpose]
 ... = discr_matrix (to_matrix f) : by simp [discr_matrix, M.2]
 ... = f.discr : discr_eq_discr_matrix _
+end discr
 
-end matrix_action
+section class_group
+
+variable {d : ℤ}
+
+structure QF (d : ℤ) :=
+(form : quadratic_form) (fix_discr : form.discr = d)
+
+@[ext]
+lemma QF_ext (f g : QF d) : f.1 = g.1 → f = g := sorry
+
+/-- The action on a QF is now given by SL₂ instead of M₂. -/
+def action (M : SL₂ℤ) (f : QF d) : QF d :=
+⟨matrix_action M.1 f.1, trans (det_invariant_for_SL f.1 M) f.fix_discr⟩
+
+infix ⬝ := action
+
+def equiv (f g : QF d) : Prop := ∃ M, M ⬝ f = g
+
+lemma refl_equiv {d : ℤ} (f : QF d) : equiv f f := begin
+  use ⟨1, dec_trivial⟩,
+  simp [action, QF.form]
+end
+lemma symm_equiv {d : ℤ} (f g : QF d) : equiv f g → equiv g f := sorry
+lemma trans_equiv {d : ℤ} (f g h : QF d) : equiv f g → equiv g h → equiv f h := sorry
+
+lemma equivalence_equiv {d : ℤ} : equivalence (@equiv d) := ⟨refl_equiv, symm_equiv, trans_equiv⟩
+
+def class_group (d : ℤ) : Type := quotient ⟨@equivalent d, equivalent_is_equivalence⟩
+
+end class_group
 
 end quadratic_form

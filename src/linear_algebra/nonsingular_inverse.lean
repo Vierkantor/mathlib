@@ -383,4 +383,5 @@ calc nonsing_inv A ⬝ A
 ... = 1                        : transpose_one
 
 end inv
+
 end matrix
