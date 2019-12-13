@@ -383,7 +383,7 @@ by simp [prod_apply_ite _ _ (λ x, x)]
 begin
   rw ←finset.prod_filter,
   split_ifs;
-  simp only [filter_eq, if_true, if_false, h, prod_empty, prod_singleton],
+  simp only [filter_eq, if_true, if_false, h, prod_empty, prod_singleton]
 end
 
 /--
@@ -431,6 +431,33 @@ begin
   {intros a1 a2 h1 h2 eq, rw [←left_inv a1 h1, ←left_inv a2 h2], cc,},
   {intros b hb, use j b hb, use hj b hb, exact (right_inv b hb).symm,},
 end
+
+@[to_additive] lemma prod_dite [comm_monoid γ] {s : finset α} {p : α → Prop} {hp : decidable_pred p}
+  (f : Π (x : α), p x → γ) (g : Π (x : α), ¬p x → γ) (h : γ → β) :
+  s.prod (λ x, h (if h : p x then f x h else g x h)) =
+  (s.filter p).attach.prod (λ x, h (f x.1 (mem_filter.mp x.2).2)) *
+  (s.filter (λ x, ¬ p x)).attach.prod (λ x, h (g x.1 (mem_filter.mp x.2).2)) :=
+by {letI := classical.dec_eq α,
+calc s.prod (λ x, h (if h : p x then f x h else g x h))
+    = (s.filter p ∪ s.filter (λ x, ¬ p x)).prod (λ x, h (if h : p x then f x h else g x h)) :
+  by rw [filter_union_filter_neg_eq]
+... = (s.filter p).prod (λ x, h (if h : p x then f x h else g x h)) *
+    (s.filter (λ x, ¬ p x)).prod (λ x, h (if h : p x then f x h else g x h)) :
+  prod_union (by simp [disjoint_right] {contextual := tt})
+... = (s.filter p).attach.prod (λ x, h (f x.1 (mem_filter.mp x.2).2)) *
+      (s.filter (λ x, ¬ p x)).attach.prod (λ x, h (g x.1 (mem_filter.mp x.2).2)) :
+  begin
+    apply congr_arg2;
+    apply @prod_bij _ _ _ _ (s.filter _) (s.filter _).attach _ _
+      (λ a ha, subtype.mk a ha)
+      (λ a ha, mem_attach _ ⟨a, ha⟩),
+    { intros a ha, congr, rw dif_pos },
+    { intros a b ha hb, apply subtype.mk.inj },
+    { intros a ha, use a.1, use a.2, finish },
+    { intros a ha, congr, rw dif_neg },
+    { intros a b ha hb, apply subtype.mk.inj },
+    { intros a ha, use a.1, use a.2, finish }
+  end}
 
 @[to_additive]
 lemma prod_bij_ne_one {s : finset α} {t : finset γ} {f : α → β} {g : γ → β}
