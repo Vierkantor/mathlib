@@ -432,20 +432,20 @@ begin
   {intros b hb, use j b hb, use hj b hb, exact (right_inv b hb).symm,},
 end
 
-@[to_additive] lemma prod_dite [comm_monoid γ] {s : finset α} {p : α → Prop} {hp : decidable_pred p}
-  (f : Π (x : α), p x → γ) (g : Π (x : α), ¬p x → γ) (h : γ → β) :
-  s.prod (λ x, h (if h : p x then f x h else g x h)) =
-  (s.filter p).attach.prod (λ x, h (f x.1 (mem_filter.mp x.2).2)) *
-  (s.filter (λ x, ¬ p x)).attach.prod (λ x, h (g x.1 (mem_filter.mp x.2).2)) :=
+@[to_additive] lemma prod_dite {s : finset α} {p : α → Prop} {hp : decidable_pred p}
+  (f : Π (x : α), p x → γ) (g : Π (x : α), ¬p x → γ) (h : α → γ → β) :
+  s.prod (λ x, h x (if b : p x then f x b else g x b)) =
+  (s.filter p).attach.prod (λ x, h x (f x.1 (mem_filter.mp x.2).2)) *
+  (s.filter (λ x, ¬ p x)).attach.prod (λ x, h x (g x.1 (mem_filter.mp x.2).2)) :=
 by {letI := classical.dec_eq α,
-calc s.prod (λ x, h (if h : p x then f x h else g x h))
-    = (s.filter p ∪ s.filter (λ x, ¬ p x)).prod (λ x, h (if h : p x then f x h else g x h)) :
+calc s.prod (λ x, h x (if b : p x then f x b else g x b))
+    = (s.filter p ∪ s.filter (λ x, ¬ p x)).prod (λ x, h x (if b : p x then f x b else g x b)) :
   by rw [filter_union_filter_neg_eq]
-... = (s.filter p).prod (λ x, h (if h : p x then f x h else g x h)) *
-    (s.filter (λ x, ¬ p x)).prod (λ x, h (if h : p x then f x h else g x h)) :
+... = (s.filter p).prod (λ x, h x (if b : p x then f x b else g x b)) *
+    (s.filter (λ x, ¬ p x)).prod (λ x, h x (if b : p x then f x b else g x b)) :
   prod_union (by simp [disjoint_right] {contextual := tt})
-... = (s.filter p).attach.prod (λ x, h (f x.1 (mem_filter.mp x.2).2)) *
-      (s.filter (λ x, ¬ p x)).attach.prod (λ x, h (g x.1 (mem_filter.mp x.2).2)) :
+... = (s.filter p).attach.prod (λ x, h x.1 (f x.1 (mem_filter.mp x.2).2)) *
+      (s.filter (λ x, ¬ p x)).attach.prod (λ x, h x.1 (g x.1 (mem_filter.mp x.2).2)) :
   begin
     apply congr_arg2;
     apply @prod_bij _ _ _ _ (s.filter _) (s.filter _).attach _ _
