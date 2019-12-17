@@ -292,6 +292,13 @@ section transpose
 
 open_locale matrix
 
+/--
+  Tell `simp` what the entries are in a transposed matrix.
+
+  Compare with `mul_val`, `diagonal_val_eq`, etc.
+-/
+@[simp] lemma transpose_val (M : matrix m n α) (i j) : M.transpose j i = M i j := rfl
+
 @[simp] lemma transpose_transpose (M : matrix m n α) :
   Mᵀᵀ = M :=
 by ext; refl
