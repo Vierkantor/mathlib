@@ -423,7 +423,7 @@ calc s.prod f = s.prod (λx, 1) : finset.prod_congr rfl h
 
 /-- If we can partition a product into subsets that cancel out, then the whole product cancels. -/
 @[to_additive]
-lemma finset.prod_cancels_of_partition_cancels [R : setoid α] [decidable_rel R.r]
+lemma prod_cancels_of_partition_cancels [R : setoid α] [decidable_rel R.r]
   (h : ∀ x ∈ s, (s.filter (λy, y ≈ x)).prod f = 1) : s.prod f = 1 :=
 begin
 suffices : (s.image quotient.mk).prod (λ xbar, (s.filter (λ y, ⟦y⟧ = xbar)).prod f) = s.prod f,
