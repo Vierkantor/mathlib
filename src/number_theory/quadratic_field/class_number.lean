@@ -1,8 +1,9 @@
 import data.int.gcd
 import data.matrix.basic
 import data.vector2
-import linear_algebra.determinant
+import group_theory.group_action
 import linear_algebra.matrix
+import linear_algebra.nonsingular_inverse
 import tactic.linarith
 import tactic.fin_cases
 import tactic.find
@@ -41,6 +42,19 @@ structure quadratic_form := (a : ℤ) (b : ℤ) (c : ℤ)
 
 /-- Matrices with integer entries `((α β) (γ δ))` and determinant 1. -/
 def SL₂ℤ := { M : matrix (fin 2) (fin 2) ℤ // M.det = 1 }
+
+@[ext]
+lemma SL₂ℤ_ext {A B : SL₂ℤ} : A.1 = B.1 → A = B := sorry
+
+instance : group SL₂ℤ := ⟨
+  λ A B, ⟨A.1 * B.1, by rw [matrix.det_mul, A.2, B.2, mul_one]⟩,
+  λ A B C, SL₂ℤ_ext (mul_assoc _ _ _),
+  ⟨1, matrix.det_one⟩,
+  λ A, SL₂ℤ_ext (one_mul _),
+  λ A, SL₂ℤ_ext (mul_one _),
+  λ A, ⟨matrix.nonsing_inv A.1, _⟩,
+  _
+⟩
 
 namespace SL₂ℤ
 def α (M : SL₂ℤ) : ℤ := M.1 0 0
@@ -366,6 +380,7 @@ end
 end matrix_action
 
 section discr
+open_locale matrix_action
 /--
   The discriminant of a quadratic form.
 -/
@@ -388,9 +403,9 @@ discr_matrix (to_matrix f)
 /--
   Matrices with determinant = 1 preserve the discriminant of a quadratic form.
 -/
-theorem det_invariant_for_SL (f : quadratic_form) (M : SL₂ℤ) : (M.1 · f).discr = f.discr := calc
-(M.1 · f).discr
-    = discr_matrix (to_matrix (M.1 · f)) : symm (discr_eq_discr_matrix _)
+theorem det_invariant_for_SL (f : quadratic_form) (M : SL₂ℤ) : discr (matrix_action M.1 f) = f.discr := calc
+discr (matrix_action M.1 f)
+    = discr_matrix (to_matrix (matrix_action M.1 f)) : symm (discr_eq_discr_matrix _)
 ... = discr_matrix (matrix_action_matrix M.1 (to_matrix f)) : by rw [matrix_action_to_matrix]
 ... = - (M.1ᵀ ⬝ to_matrix f ⬝ M.1).det : by rw [discr_matrix, matrix_action_matrix]
 ... = - (M.1ᵀ * to_matrix f * M.1).det : rfl
@@ -414,13 +429,13 @@ lemma QF_ext (f g : QF d) : f.1 = g.1 → f = g := sorry
 def action (M : SL₂ℤ) (f : QF d) : QF d :=
 ⟨matrix_action M.1 f.1, trans (det_invariant_for_SL f.1 M) f.fix_discr⟩
 
-infix ⬝ := action
+instance (d : ℤ) : mul_action SL₂ℤ (QF d) := sorry
 
 def equiv (f g : QF d) : Prop := ∃ M, M ⬝ f = g
 
 lemma refl_equiv {d : ℤ} (f : QF d) : equiv f f := begin
   use ⟨1, dec_trivial⟩,
-  simp [action, QF.form]
+  simp [action, QF.form],
 end
 lemma symm_equiv {d : ℤ} (f g : QF d) : equiv f g → equiv g f := sorry
 lemma trans_equiv {d : ℤ} (f g h : QF d) : equiv f g → equiv g h → equiv f h := sorry
