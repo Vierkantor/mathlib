@@ -45,6 +45,7 @@ def SL₂ℤ := { M : matrix (fin 2) (fin 2) ℤ // M.det = 1 }
 
 @[ext]
 lemma SL₂ℤ_ext {A B : SL₂ℤ} : A.1 = B.1 → A = B := sorry
+lemma SL₂ℤ_congr {A B : SL₂ℤ} : A = B → A.1 = B.1 := sorry
 
 instance : group SL₂ℤ := ⟨
   λ A B, ⟨A.1 * B.1, by rw [matrix.det_mul, A.2, B.2, mul_one]⟩,
@@ -52,8 +53,8 @@ instance : group SL₂ℤ := ⟨
   ⟨1, matrix.det_one⟩,
   λ A, SL₂ℤ_ext (one_mul _),
   λ A, SL₂ℤ_ext (mul_one _),
-  λ A, ⟨matrix.nonsing_inv A.1, _⟩,
-  _
+  λ A, ⟨matrix.adjugate A.1, matrix.det_adjugate_eq_one_of_det_eq_one A.1 A.2⟩,
+  λ A, SL₂ℤ_ext (matrix.adjugate_mul_det_one A.1 A.2)
 ⟩
 
 namespace SL₂ℤ
@@ -377,6 +378,17 @@ apply injective_to_matrix,
 simp [symm (matrix_action_to_matrix 1 f), matrix_action_matrix]
 end
 
+/--
+  Applying the product of two matrices is the same as applying the matrices consecutively.
+-/
+lemma matrix_action_mul (M N : M₂ℤ) (f : quadratic_form) :
+  matrix_action (M * N) f = matrix_action N (matrix_action M f) :=
+begin
+  apply injective_to_matrix,
+  rw [←matrix_action_to_matrix, ←matrix_action_to_matrix, ←matrix_action_to_matrix, matrix_action_matrix, matrix_action_matrix, matrix_action_matrix],
+  simp [matrix.mul_assoc]
+end
+
 end matrix_action
 
 section discr
@@ -425,24 +437,17 @@ structure QF (d : ℤ) :=
 @[ext]
 lemma QF_ext (f g : QF d) : f.1 = g.1 → f = g := sorry
 
-/-- The action on a QF is now given by SL₂ instead of M₂. -/
-def action (M : SL₂ℤ) (f : QF d) : QF d :=
-⟨matrix_action M.1 f.1, trans (det_invariant_for_SL f.1 M) f.fix_discr⟩
+-- Turn right action of M into a left action by replacing M with M⁻¹.
+-- TODO: can we do this better?
+instance : has_scalar SL₂ℤ (QF d) :=
+⟨λ M f, ⟨matrix_action M⁻¹.1 f.1, trans (det_invariant_for_SL f.1 M⁻¹) f.fix_discr⟩⟩
+instance : mul_action SL₂ℤ (QF d) := ⟨
+λ f, QF_ext _ _ (matrix_action_identity _),
+λ M N f, QF_ext _ _ (trans (congr_arg2 (λ (M : SL₂ℤ) f, matrix_action M.1 f) (mul_inv_rev M N) rfl)
+                           (matrix_action_mul _ _ _))⟩
 
-instance (d : ℤ) : mul_action SL₂ℤ (QF d) := sorry
-
-def equiv (f g : QF d) : Prop := ∃ M, M ⬝ f = g
-
-lemma refl_equiv {d : ℤ} (f : QF d) : equiv f f := begin
-  use ⟨1, dec_trivial⟩,
-  simp [action, QF.form],
-end
-lemma symm_equiv {d : ℤ} (f g : QF d) : equiv f g → equiv g f := sorry
-lemma trans_equiv {d : ℤ} (f g h : QF d) : equiv f g → equiv g h → equiv f h := sorry
-
-lemma equivalence_equiv {d : ℤ} : equivalence (@equiv d) := ⟨refl_equiv, symm_equiv, trans_equiv⟩
-
-def class_group (d : ℤ) : Type := quotient ⟨@equivalent d, equivalent_is_equivalence⟩
+/-- Quadratic forms are considered equivalent if they share the same orbit. -/
+def class_group (d : ℤ) : Type := quotient (mul_action.orbit_rel SL₂ℤ (QF d))
 
 end class_group
 
