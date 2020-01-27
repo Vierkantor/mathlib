@@ -41,20 +41,17 @@ end matrix_helpers
 structure quadratic_form := (a : ℤ) (b : ℤ) (c : ℤ)
 
 /-- Matrices with integer entries `((α β) (γ δ))` and determinant 1. -/
-def SL₂ℤ := { M : matrix (fin 2) (fin 2) ℤ // M.det = 1 }
-
 @[ext]
-lemma SL₂ℤ_ext {A B : SL₂ℤ} : A.1 = B.1 → A = B := sorry
-lemma SL₂ℤ_congr {A B : SL₂ℤ} : A = B → A.1 = B.1 := sorry
+structure SL₂ℤ := (M : matrix (fin 2) (fin 2) ℤ) (prop : M.det = 1)
 
 instance : group SL₂ℤ := ⟨
   λ A B, ⟨A.1 * B.1, by rw [matrix.det_mul, A.2, B.2, mul_one]⟩,
-  λ A B C, SL₂ℤ_ext (mul_assoc _ _ _),
+  λ A B C, SL₂ℤ.ext _ _ (mul_assoc _ _ _),
   ⟨1, matrix.det_one⟩,
-  λ A, SL₂ℤ_ext (one_mul _),
-  λ A, SL₂ℤ_ext (mul_one _),
+  λ A, SL₂ℤ.ext _ _ (one_mul _),
+  λ A, SL₂ℤ.ext _ _ (mul_one _),
   λ A, ⟨matrix.adjugate A.1, matrix.det_adjugate_eq_one_of_det_eq_one A.1 A.2⟩,
-  λ A, SL₂ℤ_ext (matrix.adjugate_mul_det_one A.1 A.2)
+  λ A, SL₂ℤ.ext _ _ (matrix.adjugate_mul_det_one A.1 A.2)
 ⟩
 
 namespace SL₂ℤ
@@ -431,19 +428,17 @@ section class_group
 
 variable {d : ℤ}
 
+@[ext]
 structure QF (d : ℤ) :=
 (form : quadratic_form) (fix_discr : form.discr = d)
-
-@[ext]
-lemma QF_ext (f g : QF d) : f.1 = g.1 → f = g := sorry
 
 -- Turn right action of M into a left action by replacing M with M⁻¹.
 -- TODO: can we do this better?
 instance : has_scalar SL₂ℤ (QF d) :=
 ⟨λ M f, ⟨matrix_action M⁻¹.1 f.1, trans (det_invariant_for_SL f.1 M⁻¹) f.fix_discr⟩⟩
 instance : mul_action SL₂ℤ (QF d) := ⟨
-λ f, QF_ext _ _ (matrix_action_identity _),
-λ M N f, QF_ext _ _ (trans (congr_arg2 (λ (M : SL₂ℤ) f, matrix_action M.1 f) (mul_inv_rev M N) rfl)
+λ f, QF.ext _ _ (matrix_action_identity _),
+λ M N f, QF.ext _ _ (trans (congr_arg2 (λ (M : SL₂ℤ) f, matrix_action M.1 f) (mul_inv_rev M N) rfl)
                            (matrix_action_mul _ _ _))⟩
 
 /-- Quadratic forms are considered equivalent if they share the same orbit. -/
