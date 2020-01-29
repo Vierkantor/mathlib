@@ -1,21 +1,16 @@
 import data.int.gcd
+import data.zsqrtd.basic
 import data.matrix.basic
-import data.vector2
 import group_theory.group_action
+import group_theory.quotient_group
 import linear_algebra.matrix
 import linear_algebra.nonsingular_inverse
-import tactic.linarith
 import tactic.fin_cases
-import tactic.find
+import tactic.linarith
 
 /-! Computing the class number for quadratic number fields -/
 
 section matrix_helpers
-
-/-! ### `matrix_helpers` section
-  This section contains some helper lemmas on (calculating with) matrices.
-  TODO: move these to a suitable file
--/
 
 @[to_additive]
 lemma finset.prod_univ {α n} [comm_monoid α] (f : fin n → α) : finset.prod finset.univ f =
@@ -59,16 +54,29 @@ def α (M : SL₂ℤ) : ℤ := M.1 0 0
 def β (M : SL₂ℤ) : ℤ := M.1 0 1
 def γ (M : SL₂ℤ) : ℤ := M.1 1 0
 def δ (M : SL₂ℤ) : ℤ := M.1 1 1
-end SL₂ℤ
 
-/-- Since `M` and `-M` have the same action on a quadratic form, we choose γ positive. -/
-def PSL₂ℤ := { M : matrix (fin 2) (fin 2) ℤ // M.det = 1 ∧ 0 ≤ M 1 0 }
-namespace PSL₂ℤ
-def α (M : PSL₂ℤ) : ℤ := M.1 0 0
-def β (M : PSL₂ℤ) : ℤ := M.1 0 1
-def γ (M : PSL₂ℤ) : ℤ := M.1 1 0
-def δ (M : PSL₂ℤ) : ℤ := M.1 1 1
-end PSL₂ℤ
+variables (M N : SL₂ℤ)
+
+@[simp] lemma mul_def : (M * N).M = M.M * N.M := rfl
+
+@[simp] lemma α_mul : (M * N).α = M.α * N.α + M.β * N.γ :=
+by { have : (M * N).α = M.α * N.α + (M.β * N.γ + 0) := rfl, simp [this] }
+@[simp] lemma β_mul : (M * N).β = M.α * N.β + M.β * N.δ :=
+by { have : (M * N).β = M.α * N.β + (M.β * N.δ + 0) := rfl, simp [this] }
+@[simp] lemma γ_mul : (M * N).γ = M.γ * N.α + M.δ * N.γ :=
+by { have : (M * N).γ = M.γ * N.α + (M.δ * N.γ + 0) := rfl, simp [this] }
+@[simp] lemma δ_mul : (M * N).δ = M.γ * N.β + M.δ * N.δ :=
+by { have : (M * N).δ = M.γ * N.β + (M.δ * N.δ + 0) := rfl, simp [this] }
+
+@[simp] lemma α_inv : (M⁻¹).α = M.δ :=
+by { have : (M⁻¹).α = (1 * (1 * (M.δ * 1))) + (((-1) * (M.γ * 0)) + 0) := rfl, simp [this] }
+@[simp] lemma β_inv : (M⁻¹).β = -M.β :=
+by { have : (M⁻¹).β = (1 * (M.α * 0)) + (((-1) * (1 * (M.β * 1))) + 0) := rfl, simp [this] }
+@[simp] lemma γ_inv : (M⁻¹).γ = -M.γ :=
+by { have : (M⁻¹).γ = (1 * (0 * (M.δ * 1))) + (((-1) * (M.γ * 1)) + 0) := rfl, simp [this] }
+@[simp] lemma δ_inv : (M⁻¹).δ = M.α :=
+by { have : (M⁻¹).δ = (1 * (M.α * 1)) + (((-1) * (0 * (M.β * 1))) + 0) := rfl, simp [this] }
+end SL₂ℤ
 
 namespace quadratic_form
 open_locale matrix
@@ -424,10 +432,11 @@ discr (matrix_action M.1 f)
 ... = f.discr : discr_eq_discr_matrix _
 end discr
 
-section class_group
+section class_number
 
 variable {d : ℤ}
 
+-- TODO: better name!
 @[ext]
 structure QF (d : ℤ) :=
 (form : quadratic_form) (fix_discr : form.discr = d)
@@ -441,9 +450,26 @@ instance : mul_action SL₂ℤ (QF d) := ⟨
 λ M N f, QF.ext _ _ (trans (congr_arg2 (λ (M : SL₂ℤ) f, matrix_action M.1 f) (mul_inv_rev M N) rfl)
                            (matrix_action_mul _ _ _))⟩
 
-/-- Quadratic forms are considered equivalent if they share the same orbit. -/
-def class_group (d : ℤ) : Type := quotient (mul_action.orbit_rel SL₂ℤ (QF d))
+-- TODO: better name!
+def Γ_infinity : set SL₂ℤ := { M | ∃ m, M.α = 1 ∧ M.β = m ∧ M.γ = 0 ∧ M.δ = 1 }
 
-end class_group
+instance : is_submonoid Γ_infinity :=
+⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, by { cases ha, cases hb, split; simp * }⟩⟩
+instance : is_subgroup Γ_infinity :=
+⟨λ a ⟨ma, ha⟩, ⟨-ma, by { cases ha, split; simp * }⟩⟩
+
+set_option pp.all true
+
+-- 
+instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
+instance subgroup_mul_action {α β} [group α] [mul_action α β] (s : set α) [is_subgroup s] : @mul_action s β (group.to_monoid _):=
+⟨one_smul α, λ x y, @mul_smul α _ _ _ x.1 y.1⟩
+
+/-- Quadratic forms are considered equivalent if they share the same orbit modulo Γ_infinity. -/
+def F (d : ℤ) : Type := quotient (mul_action.orbit_rel Γ_infinity (QF d)) -- TODO: better name!
+
+theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (Zsqrt d)) = cardinal.mk (F d)
+
+end class_number
 
 end quadratic_form
