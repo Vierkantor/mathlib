@@ -460,13 +460,15 @@ instance : is_subgroup Γ_infinity :=
 
 set_option pp.all true
 
--- 
 instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
-instance subgroup_mul_action {α β} [group α] [mul_action α β] (s : set α) [is_subgroup s] : @mul_action s β (group.to_monoid _):=
+def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
 ⟨one_smul α, λ x y, @mul_smul α _ _ _ x.1 y.1⟩
 
 /-- Quadratic forms are considered equivalent if they share the same orbit modulo Γ_infinity. -/
-def F (d : ℤ) : Type := quotient (mul_action.orbit_rel Γ_infinity (QF d)) -- TODO: better name!
+def F (d : ℤ) : Type := quotient begin
+haveI := @submonoid_mul_action SL₂ℤ (QF d) _ _ Γ_infinity,
+exact (mul_action.orbit_rel Γ_infinity (QF d))
+end-- TODO: better name!
 
 theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (Zsqrt d)) = cardinal.mk (F d)
 
