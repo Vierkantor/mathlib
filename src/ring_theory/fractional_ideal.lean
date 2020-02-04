@@ -666,5 +666,3 @@ end ⟩
 end principal_ideal_domain
 
 end fractional_ideal
-
-end ring

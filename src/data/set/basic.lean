@@ -1746,6 +1746,20 @@ ext $ λ ⟨x, hx⟩ , by simp [inclusion]
 
 end inclusion
 
+section zip_with
+/-! ### `zip_with` section
+
+  Definition of `set.zip_with` and some `simp` lemmas.
+-/
+
+variables {α β γ : Type*}
+
+/-- `set.zip_with s t f` is the set of all `f x y` for `x ∈ s`, `y ∈ t` -/
+def zip_with (s : set α) (t : set β) (f : α → β → γ) : set γ :=
+uncurry f '' s.prod t
+
+end zip_with
+
 end set
 
 namespace subsingleton
