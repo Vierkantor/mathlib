@@ -1752,11 +1752,53 @@ section zip_with
   Definition of `set.zip_with` and some `simp` lemmas.
 -/
 
-variables {α β γ : Type*}
+universes u v
+variables {α β : Type u} {γ : Type v}
 
-/-- `set.zip_with s t f` is the set of all `f x y` for `x ∈ s`, `y ∈ t` -/
-def zip_with (s : set α) (t : set β) (f : α → β → γ) : set γ :=
+/-- `set.zip_with s t f` is the set of all `f x y` for `(x, y) ∈ s × t`
+
+  Equivalently, as `mem_zip_with` shows, it is the set of all `f x y` for `x ∈ s` and `y ∈ t`.
+-/
+def zip_with (f : α → β → γ) (s : set α) (t : set β) : set γ :=
 uncurry f '' s.prod t
+
+variables {f : α → β → γ} {s : set α} {t : set β}
+
+lemma mem_zip_with (x : γ) : x ∈ zip_with f s t ↔ ∃ (y ∈ s) (z ∈ t), x = f y z :=
+begin
+  simp only [zip_with, mem_image, mem_prod],
+  split; intro h,
+  { rcases h with ⟨⟨y, z⟩, ⟨hs, ht⟩, hf⟩,
+    exact ⟨y, hs, z, ht, hf.symm⟩ },
+  { rcases h with ⟨y, hs, z, ht, hf ⟩,
+    exact ⟨⟨y, z⟩, ⟨hs, ht⟩, hf.symm⟩ },
+end
+
+@[simp] lemma zip_with_flip : zip_with (flip f) t s = zip_with f s t :=
+by { ext, simp [mem_zip_with], tauto }
+
+@[simp] lemma empty_zip_with : zip_with f ∅ t = ∅ := by { ext, simp [mem_zip_with] }
+
+@[simp] lemma zip_with_empty : zip_with f s ∅ = ∅ := by { ext, simp [mem_zip_with] }
+
+@[simp] lemma insert_zip_with {x : α} : zip_with f (insert x s) t = (f x) '' t ∪ zip_with f s t :=
+begin
+  ext z,
+  simp only [mem_zip_with, exists_prop, mem_insert_iff, mem_union, mem_image],
+  split; intro h,
+  { rcases h with ⟨x', hx' | hx', y, hy, hz⟩; rw [hz],
+    { rw hx',
+      exact or.inl ⟨y, hy, rfl⟩ },
+    { exact or.inr ⟨x', hx', y, hy, rfl⟩ } },
+  { rcases h with ⟨y, hy, hz⟩ | ⟨x', hx', y, hy, hz⟩,
+    { exact ⟨x, or.inl rfl, y, hy, hz.symm⟩ },
+    { exact ⟨x', or.inr hx', y, hy, hz⟩ } }
+end
+
+@[simp] lemma zip_with_insert {y : β} :
+  zip_with f s (insert y t) = (λ x, f x y) '' s ∪ zip_with f s t :=
+show zip_with f s (insert y t) = (flip f y) '' s ∪ zip_with f s t,
+by rw [←zip_with_flip, insert_zip_with, zip_with_flip]
 
 end zip_with
 
