@@ -1764,7 +1764,7 @@ uncurry f '' s.prod t
 
 variables {f : α → β → γ} {s : set α} {t : set β}
 
-lemma mem_zip_with (x : γ) : x ∈ zip_with f s t ↔ ∃ (y ∈ s) (z ∈ t), x = f y z :=
+@[simp] lemma mem_zip_with (x : γ) : x ∈ zip_with f s t ↔ ∃ (y ∈ s) (z ∈ t), x = f y z :=
 begin
   simp only [zip_with, mem_image, mem_prod],
   split; intro h,
@@ -1775,11 +1775,11 @@ begin
 end
 
 @[simp] lemma zip_with_flip : zip_with (flip f) t s = zip_with f s t :=
-by { ext, simp [mem_zip_with], tauto }
+by { ext, simp, tauto }
 
-@[simp] lemma empty_zip_with : zip_with f ∅ t = ∅ := by { ext, simp [mem_zip_with] }
+@[simp] lemma empty_zip_with : zip_with f ∅ t = ∅ := by { ext, simp }
 
-@[simp] lemma zip_with_empty : zip_with f s ∅ = ∅ := by { ext, simp [mem_zip_with] }
+@[simp] lemma zip_with_empty : zip_with f s ∅ = ∅ := by { ext, simp }
 
 @[simp] lemma insert_zip_with {x : α} : zip_with f (insert x s) t = (f x) '' t ∪ zip_with f s t :=
 begin
