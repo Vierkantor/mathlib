@@ -3,8 +3,7 @@ import data.zsqrtd.basic
 import data.matrix.basic
 import group_theory.group_action
 import group_theory.quotient_group
-import linear_algebra.matrix
-import linear_algebra.nonsingular_inverse
+import linear_algebra.special_linear_group
 import tactic.fin_cases
 import tactic.linarith
 
@@ -35,29 +34,16 @@ end matrix_helpers
 -/
 structure quadratic_form := (a : ℤ) (b : ℤ) (c : ℤ)
 
-/-- Matrices with integer entries `((α β) (γ δ))` and determinant 1. -/
-@[ext]
-structure SL₂ℤ := (M : matrix (fin 2) (fin 2) ℤ) (prop : M.det = 1)
+notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
+notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
 
-instance : group SL₂ℤ := ⟨
-  λ A B, ⟨A.1 * B.1, by rw [matrix.det_mul, A.2, B.2, mul_one]⟩,
-  λ A B C, SL₂ℤ.ext _ _ (mul_assoc _ _ _),
-  ⟨1, matrix.det_one⟩,
-  λ A, SL₂ℤ.ext _ _ (one_mul _),
-  λ A, SL₂ℤ.ext _ _ (mul_one _),
-  λ A, ⟨matrix.adjugate A.1, matrix.det_adjugate_eq_one_of_det_eq_one A.1 A.2⟩,
-  λ A, SL₂ℤ.ext _ _ (matrix.adjugate_mul_det_one A.1 A.2)
-⟩
-
-namespace SL₂ℤ
+namespace matrix.special_linear_group
 def α (M : SL₂ℤ) : ℤ := M.1 0 0
 def β (M : SL₂ℤ) : ℤ := M.1 0 1
 def γ (M : SL₂ℤ) : ℤ := M.1 1 0
 def δ (M : SL₂ℤ) : ℤ := M.1 1 1
 
 variables (M N : SL₂ℤ)
-
-@[simp] lemma mul_def : (M * N).M = M.M * N.M := rfl
 
 @[simp] lemma α_mul : (M * N).α = M.α * N.α + M.β * N.γ :=
 by { have : (M * N).α = M.α * N.α + (M.β * N.γ + 0) := rfl, simp [this] }
@@ -76,7 +62,7 @@ by { have : (M⁻¹).β = (1 * (M.α * 0)) + (((-1) * (1 * (M.β * 1))) + 0) := 
 by { have : (M⁻¹).γ = (1 * (0 * (M.δ * 1))) + (((-1) * (M.γ * 1)) + 0) := rfl, simp [this] }
 @[simp] lemma δ_inv : (M⁻¹).δ = M.α :=
 by { have : (M⁻¹).δ = (1 * (M.α * 1)) + (((-1) * (0 * (M.β * 1))) + 0) := rfl, simp [this] }
-end SL₂ℤ
+end matrix.special_linear_group
 
 namespace quadratic_form
 open_locale matrix
@@ -86,8 +72,6 @@ open_locale matrix
 -/
 def is_primitive (form : quadratic_form) : Prop := -- TODO: move this to another section?
 int.gcd (int.gcd form.a form.b) form.c = 1
-
-abbreviation M₂ℤ := matrix (fin 2) (fin 2) ℤ
 
 /--
   An alternative way of looking at quadratic forms is as maps on vector spaces.
@@ -425,7 +409,6 @@ discr (matrix_action M.1 f)
     = discr_matrix (to_matrix (matrix_action M.1 f)) : symm (discr_eq_discr_matrix _)
 ... = discr_matrix (matrix_action_matrix M.1 (to_matrix f)) : by rw [matrix_action_to_matrix]
 ... = - (M.1ᵀ ⬝ to_matrix f ⬝ M.1).det : by rw [discr_matrix, matrix_action_matrix]
-... = - (M.1ᵀ * to_matrix f * M.1).det : rfl
 ... = - (M.1.det * (to_matrix f).det * M.1.det) :
   by rw [matrix.det_mul, matrix.det_mul, matrix.det_transpose]
 ... = discr_matrix (to_matrix f) : by simp [discr_matrix, M.2]
@@ -458,8 +441,6 @@ instance : is_submonoid Γ_infinity :=
 instance : is_subgroup Γ_infinity :=
 ⟨λ a ⟨ma, ha⟩, ⟨-ma, by { cases ha, split; simp * }⟩⟩
 
-set_option pp.all true
-
 instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
 def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
 ⟨one_smul α, λ x y, @mul_smul α _ _ _ x.1 y.1⟩
@@ -470,7 +451,7 @@ haveI := @submonoid_mul_action SL₂ℤ (QF d) _ _ Γ_infinity,
 exact (mul_action.orbit_rel Γ_infinity (QF d))
 end-- TODO: better name!
 
-theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (Zsqrt d)) = cardinal.mk (F d)
+theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (ℤ√ d)) = cardinal.mk (F d)
 
 end class_number
 
