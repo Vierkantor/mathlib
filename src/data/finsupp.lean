@@ -1343,6 +1343,25 @@ begin
   refine finset.bind_mono (assume a _, support_single_subset)
 end
 
+@[simp] lemma ite_and (p q : Prop) [decidable p] [decidable q] (a b : α) : (if p ∧ q then a else b) = (if p then if q then a else b else b) := by { by_cases p; by_cases q; finish }
+
+lemma uncurry_apply [add_comm_monoid γ] {f : α →₀ β →₀ γ} {x : α} {y : β} : f.uncurry (x, y) = f x y :=
+calc (f.sum (λ a g, g.sum (λ b c, single (a, b) c))) (x, y)
+    = f.sum (λ a g, g.sum (λ b c, if (a, b) = (x, y) then c else 0))
+    : by { rw sum_apply, congr, ext, rw sum_apply, congr, ext, rw single_apply, congr }
+... = f.support.sum (λ a, (f a).support.sum (λ b, if (a, b) = (x, y) then f a b else 0))
+    : rfl
+... = f.support.sum (λ a, (f a).support.sum (λ b, if a = x then if b = y then f a b else 0 else 0))
+    : by { congr, ext a, congr, ext b, simp, convert (ite_and _ _ (f a b) 0) }
+... = f.support.sum (λ a, if a = x then (f a).support.sum (λ b, if b = y then f a b else 0) else 0)
+    : by { congr, ext a, by_cases a = x; simp [h] }
+... = if x ∈ f.support then if (y ∈ (f x).support) then f x y else 0 else 0
+    : by { rw [finset.sum_ite_eq'], congr, rw [finset.sum_ite_eq'] }
+... = f x y : by { by_cases hx : f x = 0, { simp [hx], rw [hx], refl }, by_cases hxy : f x y = 0; simp [hx, hxy] }
+-- TODO: cleanup
+
+@[simp] lemma uncurry_zero [add_comm_monoid γ] : (0 : α →₀ β →₀ γ).uncurry = 0 := rfl
+
 end curry_uncurry
 
 section

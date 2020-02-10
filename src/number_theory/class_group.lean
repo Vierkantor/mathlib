@@ -1,5 +1,5 @@
 import algebra.ring
-import ring_theory.localization
+import ring_theory.fractional_ideal
 import ring_theory.principal_ideal_domain
 
 namespace number_theory

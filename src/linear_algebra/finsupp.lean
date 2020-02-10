@@ -371,6 +371,10 @@ theorem mem_span_iff_total {s : set α} {x : M} :
   x ∈ span R (v '' s) ↔ ∃ l ∈ supported R R s, finsupp.total α M R v l = x :=
 by rw span_eq_map_total; simp
 
+theorem mem_span_iff_total' {s : set M} {x : M}:
+x ∈ span R s ↔ ∃ l ∈ supported R R s, finsupp.total M M R id l = x :=
+by rw [←mem_span_iff_total, image_id]
+
 variables (α) (M) (v)
 
 protected def total_on (s : set α) : supported R R s →ₗ[R] span R (v '' s) :=
