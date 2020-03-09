@@ -5,9 +5,10 @@ Authors: Jeremy Avigad, Leonardo de Moura
 -/
 import tactic.basic
 import tactic.finish
+import tactic.tauto
+import data.prod
 import data.subtype
 import logic.unique
-import data.prod
 
 /-!
 # Basic properties of sets
