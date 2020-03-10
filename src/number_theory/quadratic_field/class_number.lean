@@ -4,6 +4,7 @@ import data.matrix.basic
 import group_theory.group_action
 import group_theory.quotient_group
 import linear_algebra.special_linear_group
+import number_theory.class_group
 import tactic.fin_cases
 import tactic.linarith
 
@@ -22,7 +23,7 @@ lemma list.foldr_fin_range {α} {f : fin 2 → α → α} {e} : list.foldr f e (
 lemma matrix.det_2x2 {α} [comm_ring α] (M : matrix (fin 2) (fin 2) α) :
 M.det = M 0 0 * M 1 1 - M 0 1 * M 1 0 := calc
 M.det = (0 + 1) * (M 0 0 * (M 1 1 * 1)) + ((- (0 + 1) * (M 1 0 * (M 0 1 * 1))) + 0) : refl _
-... = M 0 0 * M 1 1 - M 0 1 * M 1 0 : by simp [mul_comm]
+... = M 0 0 * M 1 1 - M 0 1 * M 1 0 : by ring
 
 end matrix_helpers
 
@@ -217,9 +218,8 @@ calc eval_matrix' (to_matrix f) x y
 lemma eval_of_matrix (M : M₂ℤ) (x y : ℤ) (h : of_matrix_pre M) :
   eval (of_matrix M) x y * 2 = eval_matrix' M x y := calc
 eval (of_matrix M) x y * 2
-    = (M 0 1 * x * y + (M 1 1 / 2 * y ^ 2 + M 0 0 / 2 * x ^ 2)) * 2 : by simp [eval]
-... = (M 0 1 * x * y * 2 + ((M 1 1 / 2 * 2) * y ^ 2 + (M 0 0 / 2 * 2) * x ^ 2)) :
-  by {rw [add_mul, add_mul], ac_refl}
+    = (M 0 0 / 2 * x ^ 2 + (M 0 1 * x * y + M 1 1 / 2 * y ^ 2)) * 2 : by simp [eval]
+... = (M 0 1 * x * y * 2 + ((M 1 1 / 2 * 2) * y ^ 2 + (M 0 0 / 2 * 2) * x ^ 2)) : by ring
 ... = (M 0 1 * x * y * 2 + (M 1 1 * y ^ 2 + M 0 0 * x ^ 2)) : by rw [h.ha.h, h.hc.h]
 ... = ((x * M 0 0 + (y * M 0 1 + 0)) * x) + ((x * M 0 1 + (y * M 1 1 + 0)) * y + 0) : by ring
 ... = ((x * M 0 0 + (y * M 1 0 + 0)) * x) + ((x * M 0 1 + (y * M 1 1 + 0)) * y + 0) : by rw [h.hb]
@@ -302,14 +302,14 @@ lemma of_matrix_pre_action (M N : M₂ℤ) (h : of_matrix_pre N) : of_matrix_pre
   cases h,
   split,
   { suffices : even ((N 1 1 * M 1 0 + 2 * N 1 0 * M 0 0) * M 1 0 + N 0 0 * M 0 0 ^ 2),
-    { simp [matrix.mul_val, matrix_action_matrix, h_hb, finset.sum_univ], ring, assumption },
+    { convert this, simp [matrix.mul_val, matrix_action_matrix, h_hb, finset.sum_univ], ring },
     apply even_add_even; apply even_mul,
     { apply even_add_even; apply even_mul, assumption, exact even_mul _ _ even_2 },
     assumption
     },
   { simp [matrix_action_matrix, h_hb, finset.sum_univ], ring },
   { suffices : even ((N 1 1 * M 1 1 + 2 * N 1 0 * M 0 1) * M 1 1 + N 0 0 * M 0 1 ^ 2),
-    { simp [matrix_action_matrix, h_hb, finset.sum_univ], ring, assumption },
+    { convert this, simp [matrix_action_matrix, h_hb, finset.sum_univ], ring },
     apply even_add_even; apply even_mul,
     { apply even_add_even; apply even_mul, assumption, exact even_mul _ _ even_2 },
     { assumption },
@@ -437,7 +437,7 @@ instance : mul_action SL₂ℤ (QF d) := ⟨
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M.α = 1 ∧ M.β = m ∧ M.γ = 0 ∧ M.δ = 1 }
 
 instance : is_submonoid Γ_infinity :=
-⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, by { cases ha, cases hb, split; simp * }⟩⟩
+⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, by { cases ha, cases hb, split; simp [add_comm, *] }⟩⟩
 instance : is_subgroup Γ_infinity :=
 ⟨λ a ⟨ma, ha⟩, ⟨-ma, by { cases ha, split; simp * }⟩⟩
 
