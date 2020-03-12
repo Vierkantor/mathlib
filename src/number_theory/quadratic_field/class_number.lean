@@ -5,6 +5,7 @@ import group_theory.group_action
 import group_theory.quotient_group
 import linear_algebra.special_linear_group
 import number_theory.class_group
+import order.basic
 import tactic.fin_cases
 import tactic.linarith
 
@@ -63,15 +64,14 @@ open matrix
 
 def mk (M : matrix n n α) (hM : Mᵀ = M) : quadratic_form n α := ⟨M, hM⟩
 
-instance : has_coe (quadratic_form n α) (matrix n n α) := ⟨λ M, M.1⟩
+def from_tuple (a b c : α) : quadratic_form (fin 2) α :=
+⟨![ ![ a, b ], ![ b, c ] ], by { ext i j, fin_cases i; fin_cases j; refl }⟩
 
 instance : has_coe_to_fun (quadratic_form n α) :=
 ⟨ λ _, n → n → α,
   λ M, M.1 ⟩
 
-@[simp] lemma coe_mk (M : matrix n n α) (hM : Mᵀ = M) : ↑(mk M hM) = M := rfl
-
-@[simp] lemma coe_to_fun_mk (M : matrix n n α) (hM : Mᵀ = M) :
+@[simp] lemma coe_fn_mk (M : matrix n n α) (hM : Mᵀ = M) :
   ⇑(mk M hM) = M :=
 rfl
 
@@ -84,13 +84,8 @@ show Mᵀ j i = M j i, by { erw M.2, refl }
 lemma ext : Π (M N : quadratic_form n α), (∀ i j, M i j = N i j) → M = N :=
 λ ⟨M, _⟩ ⟨N, _⟩ h, by { congr, ext, apply h }
 
-@[simp] lemma mk_coe (M : quadratic_form n α) (hM : (↑M : matrix n n α)ᵀ = ↑M) : mk (↑M) hM = M :=
+@[simp] lemma mk_coe_fn (M : quadratic_form n α) (hM : (⇑M : matrix n n α)ᵀ = ⇑M) : mk (⇑M) hM = M :=
 by { ext, refl }
-
-@[simp] lemma mk_coe_fn (M : quadratic_form n α) (hM : (⇑M : matrix n n α)ᵀ = ⇑M) :
-  mk (⇑ M) hM = M :=
-by { ext, refl }
-
 
 /-- A primitive quadratic form has no common divisor among its coefficients. -/
 def is_primitive [gcd_domain α] (M : quadratic_form n α) : Prop :=
@@ -115,7 +110,8 @@ calc eval M x = univ.sum (λ i : n, (univ.sum (λ j : n, x j * M j i) * x i)) : 
 lemma eval_basis [semiring α] [decidable_eq n] (M : quadratic_form n α) (i : n) :
   eval M (λ j, if i = j then 1 else 0) = M i i :=
 calc eval M (λ j, if i = j then 1 else 0)
-    = sum univ (λ i' : n, sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) : by simp [eval_val]
+    = sum univ (λ i' : n, sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) :
+    by { simp [eval_val] }
 ... = sum univ (λ i' : n, ite (i = i') (sum univ (λ j : n, (ite (i = j) (M i' j) 0))) 0) :
     by { congr, ext i', split_ifs, { refl }, simp }
 ... = M i i : by simp
@@ -123,7 +119,8 @@ calc eval M (λ j, if i = j then 1 else 0)
 lemma eq_of_eval_eq_aux [semiring α] [decidable_eq n] (M : quadratic_form n α) {i j : n} (h : j ≠ i) :
   eval M (λ j', if i = j' ∨ j = j' then 1 else 0) = M i i + 2 * M i j + M j j :=
 calc eval M (λ j', if i = j' ∨ j = j' then 1 else 0)
-    = sum univ (λ i' : n, sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0)) : by simp [eval_val]
+    = sum univ (λ i' : n, sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0))
+    : by simp [eval_val]
 ... = sum univ (λ i' : n, ite (i = i' ∨ j = i') (sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
     : by { congr, ext i', split_ifs, { refl }, simp }
 ... = sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
@@ -162,7 +159,7 @@ variables [comm_ring α]
   on quadratic forms with fixed discriminant.
 -/
 def matrix_action (M : matrix n n α) (N : quadratic_form n α) : quadratic_form n α :=
-mk (Mᵀ ⬝ N ⬝ M) (by simp [transpose_mul, matrix.mul_assoc])
+mk (M ⬝ N ⬝ Mᵀ) (by simp [matrix.mul_assoc, transpose_coe_fn])
 
 local infixr ` · `:70 := matrix_action
 
@@ -176,8 +173,8 @@ by simp [matrix_action]
   The action works by multiplying vectors with the matrix.
 -/
 @[simp] lemma eval_action (M : matrix n n α) (f : quadratic_form n α) (x : n → α) :
-  eval (M · f) x = eval f (M.mul_vec x) :=
-by simp [eval, matrix_action, row_mul_vec, col_mul_vec, matrix.mul_assoc]
+  eval (M · f) x = eval f (M.vec_mul x) :=
+by simp [eval, matrix_action, row_vec_mul, col_vec_mul, matrix.mul_assoc]
 
 /--
   The identity matrix gives the identity action.
@@ -191,7 +188,7 @@ by simp [matrix_action]
 -/
 @[simp]
 lemma matrix_action_mul (M N : matrix n n α) (f : quadratic_form n α) :
-  (M ⬝ N) · f = N · (M · f) :=
+  (M ⬝ N) · f = M · (N · f) :=
 by simp [matrix_action, matrix.mul_assoc]
 
 end matrix_action
@@ -221,16 +218,19 @@ variable {d : ℤ}
 -- TODO: better name!
 def QF (d : ℤ) := {f : quadratic_form (fin 2) ℤ // f.discr = d}
 
--- Turn right action of M into a left action by replacing M with M⁻¹.
--- TODO: can we do this better?
-instance : has_scalar SL₂ℤ (QF d) :=
-⟨λ M f, ⟨matrix_action M⁻¹.1 f.1, trans (det_invariant_for_SL f.1 M⁻¹) f.2⟩⟩
+instance QF_to_form : has_coe (QF d) (quadratic_form (fin 2) ℤ) := ⟨ λ f, f.1 ⟩
 
-@[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action ↑(M⁻¹) f.1 := rfl
+instance QF_to_fn : has_coe_to_fun (QF d) := ⟨ λ f, fin 2 → fin 2 → ℤ, λ f, f.1 ⟩
+
+-- Turn right action of M into a left action by replacing M with M⁻¹.
+instance : has_scalar SL₂ℤ (QF d) :=
+⟨λ M f, ⟨matrix_action M.1 f.1, trans (det_invariant_for_SL f.1 M) f.2⟩⟩
+
+@[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action ↑M f.1 := rfl
 
 instance : mul_action SL₂ℤ (QF d) :=
-⟨ λ f, subtype.ext.mpr (by simp),
-  λ M N f, subtype.ext.mpr (by simp) ⟩
+⟨ λ f, subtype.ext.mpr (by rw [smul_val, special_linear_group.one_val, matrix_action_identity]),
+λ M N f, subtype.ext.mpr (by { simp, refl }) ⟩
 
 -- TODO: better name!
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M.α = 1 ∧ M.β = m ∧ M.γ = 0 ∧ M.δ = 1 }
@@ -245,10 +245,52 @@ def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is
 ⟨one_smul α, λ x y, @_root_.mul_smul α _ _ _ x.1 y.1⟩
 
 /-- Quadratic forms are considered equivalent if they share the same orbit modulo Γ_infinity. -/
-def F (d : ℤ) : Type := quotient (@mul_action.orbit_rel Γ_infinity (QF d) _ (submonoid_mul_action _))
-
-theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (ℤ√ d)) = cardinal.mk (F d) := sorry
+def quadratic_class_group (d : ℤ) : Type :=
+quotient (@mul_action.orbit_rel Γ_infinity (QF d) _ (submonoid_mul_action _))
 
 end class_number
 
+section reduced
+
+variables [ordered_ring α] {d : ℤ}
+
+def is_positive_definite (M : quadratic_form n α) : Prop := ∀ x ≠ 0, eval M x > 0
+
+def is_reduced (f : quadratic_form (fin 2) ℤ) : Prop :=
+abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
+
+/-- In each orbit, there is a unique reduced quadratic form -/
+lemma unique_reduced_mem_orbit (M : QF d) :
+  ∃! (f : QF d), f ∈ mul_action.orbit SL₂ℤ M ∧ is_reduced f :=
+begin
+  have : well_founded (function.on_fun (<) (λ (f : QF d), f 0 0)),
+  { sorry },
+  obtain ⟨f, ⟨N, hf⟩, min⟩ := @well_founded.has_min _ (function.on_fun (<) (λ (f : QF d), f 0 0)) this (mul_action.orbit SL₂ℤ M) ⟨M, mul_action.orbit_eq_iff.mp rfl⟩,
+  use f,
+  use ⟨N, hf⟩,
+  { by_cases c_lt_a : f 1 1 < f 0 0,
+    { exfalso,
+      let N' : SL₂ℤ := ⟨![![0, -1], ![1, 0]], sorry⟩,
+      let f' : QF d := N' • f,
+      have : f' ∈ mul_action.orbit SL₂ℤ M :=
+      ⟨ N' * N, trans (_root_.mul_smul N' N M) (congr_arg _ hf) ⟩,
+      apply min f' this,
+      sorry },
+    by_cases a_lt_b : f 0 0 < abs (f 1 0),
+    { exfalso,
+      sorry },
+    split,
+    { sorry },
+    split,
+    { apply le_of_not_gt c_lt_a },
+    sorry },
+  rintros g ⟨g_mem_orbit, g_is_reduced⟩,
+  have := min g g_mem_orbit,
+  sorry
+end
+
+end reduced
+
 end quadratic_form
+
+#lint

@@ -19,6 +19,18 @@ namespace matrix
 variables {l m n o : Type u} [fintype l] [fintype m] [fintype n] [fintype o]
 variables {α : Type v}
 
+section matrix_notation
+
+def vector_empty : fin 0 → α :=
+fin_zero_elim
+
+def vector_insert {n : ℕ} (h : α) (t : fin n → α) : fin n.succ → α :=
+fin.cons h t
+
+notation `![` l:(foldr `, ` (h t, vector_insert h t) vector_empty `]`) := l
+
+end matrix_notation
+
 section ext
 variables {M N : matrix m n α}
 
