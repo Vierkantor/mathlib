@@ -10,34 +10,14 @@ import tactic.linarith
 
 /-! Computing the class number for quadratic number fields -/
 
-section matrix_helpers
+universes u v
 
-@[to_additive]
-lemma finset.prod_univ {α n} [comm_monoid α] (f : fin n → α) : finset.prod finset.univ f =
-  ((list.fin_range n).map f).foldr (*) 1
-:= rfl
+open_locale matrix
+open finset
 
-@[simp]
-lemma list.foldr_fin_range {α} {f : fin 2 → α → α} {e} : list.foldr f e (list.fin_range 2) = f 0 (f 1 e) := rfl
-
-lemma matrix.det_2x2 {α} [comm_ring α] (M : matrix (fin 2) (fin 2) α) :
-M.det = M 0 0 * M 1 1 - M 0 1 * M 1 0 := calc
-M.det = (0 + 1) * (M 0 0 * (M 1 1 * 1)) + ((- (0 + 1) * (M 1 0 * (M 0 1 * 1))) + 0) : refl _
-... = M 0 0 * M 1 1 - M 0 1 * M 1 0 : by ring
-
-end matrix_helpers
-
-/--
-  A quadratic form `f` is a function `f(x, y) := a * x^2 + b * x * y + c * y^2`,
-  which we represent as a tuple `(a, b, c)` of coefficients.
-
-  To represent this form as a function again, we can use `eval`.
--/
-structure quadratic_form := (a : ℤ) (b : ℤ) (c : ℤ)
-
+-- TODO: use nicer matrix notation
 notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
 notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
-
 namespace matrix.special_linear_group
 def α (M : SL₂ℤ) : ℤ := M.1 0 0
 def β (M : SL₂ℤ) : ℤ := M.1 0 1
@@ -63,356 +43,175 @@ by { have : (M⁻¹).β = (1 * (M.α * 0)) + (((-1) * (1 * (M.β * 1))) + 0) := 
 by { have : (M⁻¹).γ = (1 * (0 * (M.δ * 1))) + (((-1) * (M.γ * 1)) + 0) := rfl, simp [this] }
 @[simp] lemma δ_inv : (M⁻¹).δ = M.α :=
 by { have : (M⁻¹).δ = (1 * (M.α * 1)) + (((-1) * (0 * (M.β * 1))) + 0) := rfl, simp [this] }
+
+lemma det_2x2 {α} [comm_ring α] (M : matrix (fin 2) (fin 2) α) :
+M.det = M 0 0 * M 1 1 - M 0 1 * M 1 0 := calc
+M.det = (0 + 1) * (M 0 0 * (M 1 1 * 1)) + ((- (0 + 1) * (M 1 0 * (M 0 1 * 1))) + 0) : refl _
+... = M 0 0 * M 1 1 - M 0 1 * M 1 0 : by ring
+
 end matrix.special_linear_group
 
+/-- We represent a quadratic form in `n` variables with a symmetric `n` by `n` matrix.
+
+  The evaluation map for a form `M` sends a vector `x` to `xᵀ ⬝ M ⬝ x`.
+-/
+def quadratic_form (n : Type u) [fintype n] (α : Type v) := {M : matrix n n α // Mᵀ = M }
+
 namespace quadratic_form
-open_locale matrix
+variables {n : Type u} [fintype n] {α : Type v}
+open matrix
 
-/--
-  A primitive quadratic form has no common divisor of all three coefficients.
--/
-def is_primitive (form : quadratic_form) : Prop := -- TODO: move this to another section?
-int.gcd (int.gcd form.a form.b) form.c = 1
+def mk (M : matrix n n α) (hM : Mᵀ = M) : quadratic_form n α := ⟨M, hM⟩
 
-/--
-  An alternative way of looking at quadratic forms is as maps on vector spaces.
-  In this form, proofs about the matrix action are easier to state.
+instance : has_coe (quadratic_form n α) (matrix n n α) := ⟨λ M, M.1⟩
 
-  However, we introduce a factor 2 in the `a` and `c` coefficients,
-  so conversion back doesn't necessarily work.
--/
-def to_matrix (f : quadratic_form) : M₂ℤ
-| ⟨0, _⟩ ⟨0, _⟩ := f.a * 2
-| ⟨0, _⟩ ⟨1, _⟩ := f.b
-| ⟨1, _⟩ ⟨0, _⟩ := f.b
-| ⟨1, _⟩ ⟨1, _⟩ := f.c * 2
-| _ _ := 0 -- Shouldn't occur, but providing it anyway makes the definition easier to give.
+instance : has_coe_to_fun (quadratic_form n α) :=
+⟨ λ _, n → n → α,
+  λ M, M.1 ⟩
 
-/-- Allow `simp` to reduce `f.to_matrix 0 0`. -/
-@[simp] lemma to_matrix_00 (f : quadratic_form) : to_matrix f 0 0 = f.a * 2 := refl _
-@[simp] lemma to_matrix_01 (f : quadratic_form) : to_matrix f 0 1 = f.b := refl _
-@[simp] lemma to_matrix_10 (f : quadratic_form) : to_matrix f 1 0 = f.b := refl _
-@[simp] lemma to_matrix_11 (f : quadratic_form) : to_matrix f 1 1 = f.c * 2 := refl _
+@[simp] lemma coe_mk (M : matrix n n α) (hM : Mᵀ = M) : ↑(mk M hM) = M := rfl
 
-/--
-  Conversion from matrix to quadratic form.
+@[simp] lemma coe_to_fun_mk (M : matrix n n α) (hM : Mᵀ = M) :
+  ⇑(mk M hM) = M :=
+rfl
 
-  Many theorems will assume that `M 0 1 = M 1 0` and that `M 0 0` and `M 1 1` are multiples of `2`,
-  e.g. when proving that `to_matrix ∘ of_matrix` is the identity.
-  These preconditions are collected in the structure `of_matrix_pre`.
--/
-def of_matrix (M : M₂ℤ) : quadratic_form := ⟨M 0 0 / 2, M 0 1, M 1 1 / 2⟩
+lemma coe_fn_symmetric (M : quadratic_form n α) {i j : n} : M i j = M j i :=
+show Mᵀ j i = M j i, by { erw M.2, refl }
 
-section even
-/-- There is a specific notion of `even` that we need for `of_matrix`. -/
-structure even (n : ℤ) : Prop := (h : n / 2 * 2 = n)
+@[simp] lemma transpose_coe_fn (M : quadratic_form n α) : (⇑ M)ᵀ = M := M.2
 
-lemma even_2 : even 2 := ⟨by norm_num⟩
-lemma even_add_even (a b : ℤ) : even a → even b → even (a + b) := λ ha hb, ⟨calc
-(a + b) / 2 * 2
-    = (a / 2 * 2 + b / 2 * 2) / 2 * 2 : by rw [ha.h, hb.h]
-... = (a / 2 + b / 2) * 2 / 2 * 2 : by rw [add_mul]
-... = (a / 2 + b / 2) * 2 : by rw [int.mul_div_cancel _ (by linarith : (2 : ℤ) ≠ 0)]
-... = a + b : by rw [add_mul, ha.h, hb.h]⟩
-lemma even_mul (a b : ℤ) : even a → even (a * b) := λ ha, ⟨calc
-(a * b) / 2 * 2 = ((a / 2 * 2) * b) / 2 * 2 : by rw [ha.h]
-... = ((a / 2) * b) * 2 / 2 * 2 : by ac_refl
-... = ((a / 2) * b) * 2 : by rw [int.mul_div_cancel _ (by linarith : (2 : ℤ) ≠ 0)]
-... = ((a / 2 * 2) * b) : by ac_refl
-... = a * b : by rw [ha.h]⟩
-lemma mul_even (a b : ℤ) : even b → even (a * b) := by { rw [mul_comm], apply even_mul }
-end even
+@[ext]
+lemma ext : Π (M N : quadratic_form n α), (∀ i j, M i j = N i j) → M = N :=
+λ ⟨M, _⟩ ⟨N, _⟩ h, by { congr, ext, apply h }
 
-/-- The preconditions for when `of_matrix` makes sense. -/
-structure of_matrix_pre (M : M₂ℤ) : Prop :=
-(ha : even (M 0 0)) (hb : M 0 1 = M 1 0) (hc : even (M 1 1))
+@[simp] lemma mk_coe (M : quadratic_form n α) (hM : (↑M : matrix n n α)ᵀ = ↑M) : mk (↑M) hM = M :=
+by { ext, refl }
 
-/-- Allow `simp` to reduce `(of_matrix M).a`. -/
-@[simp] lemma of_matrix_a (M : M₂ℤ) : (of_matrix M).a = M 0 0 / 2 := refl _
-@[simp] lemma of_matrix_b (M : M₂ℤ) : (of_matrix M).b = M 0 1 := refl _
-@[simp] lemma of_matrix_c (M : M₂ℤ) : (of_matrix M).c = M 1 1 / 2 := refl _
+@[simp] lemma mk_coe_fn (M : quadratic_form n α) (hM : (⇑M : matrix n n α)ᵀ = ⇑M) :
+  mk (⇑ M) hM = M :=
+by { ext, refl }
 
-/-- The output to `to_matrix` satisfies the preconditions for `of_matrix`. -/
-lemma of_matrix_pre_to_matrix (f : quadratic_form) : of_matrix_pre (to_matrix f) :=
-⟨ mul_even _ _ even_2 , rfl , mul_even _ _ even_2⟩
 
-/-- The conversion from a matrix has an inverse only if `of_matrix_pre` holds.
-
-  The theorem `of_matrix_to_matrix` shows the other composition is also the identity.
--/
-@[simp]
-theorem to_matrix_of_matrix (M : M₂ℤ) (h : of_matrix_pre M) : to_matrix (of_matrix M) = M := begin
-ext,
-fin_cases i; fin_cases j,
-{ exact h.ha.h },
-{ refl },
-{ exact h.hb },
-{ exact h.hc.h },
-end
+/-- A primitive quadratic form has no common divisor among its coefficients. -/
+def is_primitive [gcd_domain α] (M : quadratic_form n α) : Prop :=
+(univ : finset (n × n)).fold gcd (1 : α) (λ ⟨i, j⟩, M i j) = 1
 
 section eval
 /--
   Evaluate the quadratic form as a function.
 
   This evaluation function is defined for all α for which the expression
-  `ax^2 + bxy + cy^2` makes sense.
+  `ax^2 + bxy + ... + cy^2` makes sense.
 -/
-def eval {α} [has_add α] [has_mul α] [has_pow α ℕ] [has_coe ℤ α] (form : quadratic_form) (x y : α) : α :=
-form.a * x^2 + form.b * x * y + form.c * y^2
+def eval [add_comm_monoid α] [has_mul α] (M : quadratic_form n α) (x : n → α) : α :=
+(row x ⬝ M ⬝ col x) ⟨⟩ ⟨⟩
 
-/-- We can recover the parameters by evaluating the form. -/
-lemma a_of_eval (f : quadratic_form) : f.a = eval f 1 0 := by {unfold eval, ring, norm_cast}
-lemma c_of_eval (f : quadratic_form) : f.c = eval f 0 1 := by {unfold eval, ring, norm_cast}
-lemma b_of_eval (f : quadratic_form) : f.b = eval f 1 1 - eval f 1 0 - eval f 0 1 :=
-by {unfold eval, ring, norm_cast}
+lemma eval_val [semiring α] {M : quadratic_form n α} {x : n → α} :
+  eval M x = univ.sum (λ i : n, univ.sum (λ j : n, x j * M i j * x i)) :=
+calc eval M x = univ.sum (λ i : n, (univ.sum (λ j : n, x j * M j i) * x i)) : rfl
+          ... = univ.sum (λ i : n, univ.sum (λ j : n, x j * M i j * x i)) :
+  by simp_rw [sum_mul, coe_fn_symmetric]
 
-/-- Quadratic forms are defined uniquely by their evaluation on a specific set of vectors. -/
-lemma eq_of_specific_eval_eq (f g : quadratic_form) :
-  (eval f 1 0 : ℤ) = eval g 1 0 → (eval f 0 1 : ℤ) = eval g 0 1 → (eval f 1 1 : ℤ) = eval g 1 1 → f = g :=
-begin
-  intros e10 e01 e11,
-  have : f.a = g.a := by rw [a_of_eval, a_of_eval, e10],
-  have : f.c = g.c := by rw [c_of_eval, c_of_eval, e01],
-  have : f.b = g.b := by rw [b_of_eval, b_of_eval, e10, e01, e11],
-  cases f, cases g,
-  finish
-end
+lemma eval_basis [semiring α] [decidable_eq n] (M : quadratic_form n α) (i : n) :
+  eval M (λ j, if i = j then 1 else 0) = M i i :=
+calc eval M (λ j, if i = j then 1 else 0)
+    = sum univ (λ i' : n, sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) : by simp [eval_val]
+... = sum univ (λ i' : n, ite (i = i') (sum univ (λ j : n, (ite (i = j) (M i' j) 0))) 0) :
+    by { congr, ext i', split_ifs, { refl }, simp }
+... = M i i : by simp
+
+lemma eq_of_eval_eq_aux [semiring α] [decidable_eq n] (M : quadratic_form n α) {i j : n} (h : j ≠ i) :
+  eval M (λ j', if i = j' ∨ j = j' then 1 else 0) = M i i + 2 * M i j + M j j :=
+calc eval M (λ j', if i = j' ∨ j = j' then 1 else 0)
+    = sum univ (λ i' : n, sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0)) : by simp [eval_val]
+... = sum univ (λ i' : n, ite (i = i' ∨ j = i') (sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
+    : by { congr, ext i', split_ifs, { refl }, simp }
+... = sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
+    : by { erw [sum_ite _ _ (λ x, x), filter_or, sum_union]; simp [filter_eq, h] }
+... = M i i + M i j + M j i + M j j
+    : by { erw [sum_ite _ _ (λ x, x), sum_ite _ _ (λ x, x), filter_or, sum_union, sum_union]; simp [filter_eq, h] }
+... = M i i + 2 * M i j + M j j : by simp [two_mul, coe_fn_symmetric]
 
 /-- Quadratic forms are defined uniquely by their evaluation. -/
-lemma eq_of_eval_eq (f g : quadratic_form) (h : ∀ (x y : ℤ), eval f x y = eval g x y) : f = g :=
-eq_of_specific_eval_eq f g (h 1 0) (h 0 1) (h 1 1)
-
-/--
-  The equivalent to `eval` for the matrix representation.
-
-  Use `eval_matrix'` if you want to pass arguments in exactly the same way.
--/
-def eval_matrix (M : M₂ℤ) (xy : fin 2 → ℤ) : ℤ :=
-(matrix.row xy ⬝ M ⬝ matrix.col xy) () ()
-
-def vec2 {α} (x y : α) (i : fin 2) : α := if i = 0 then x else y
-
-/--
-  Evaluation of these matrices in the same style as `quadratic_form.eval`.
--/
-def eval_matrix' (M : M₂ℤ) (x y : ℤ) : ℤ :=
-eval_matrix M (vec2 x y)
-
-/--
-  Matrix evaluation coincides with the evaluation defined by `eval`.
-
-  See also `eval_of_matrix` if you are starting with a matrix representation.
--/
-@[simp]
-lemma eval_to_matrix (f : quadratic_form) (x y : ℤ) : eval_matrix' (to_matrix f) x y = eval f x y * 2 :=
-calc eval_matrix' (to_matrix f) x y
-    = ((x * (f.a * 2) + (y * f.b + 0)) * x) + ((x * f.b + (y * (f.c * 2) + 0)) * y + 0) : rfl
-... = (f.a * x^2 + f.b * x * y + f.c * y^2) * 2 : by ring
-... = eval f x y * 2 : by {unfold eval, norm_cast}
-
-/--
-  Matrix evaluation coincides with the evaluation defined by `eval`.
-
-  See also `eval_to_matrix` if you are starting with a `quadratic_form` triple.
--/
-lemma eval_of_matrix (M : M₂ℤ) (x y : ℤ) (h : of_matrix_pre M) :
-  eval (of_matrix M) x y * 2 = eval_matrix' M x y := calc
-eval (of_matrix M) x y * 2
-    = (M 0 0 / 2 * x ^ 2 + (M 0 1 * x * y + M 1 1 / 2 * y ^ 2)) * 2 : by simp [eval]
-... = (M 0 1 * x * y * 2 + ((M 1 1 / 2 * 2) * y ^ 2 + (M 0 0 / 2 * 2) * x ^ 2)) : by ring
-... = (M 0 1 * x * y * 2 + (M 1 1 * y ^ 2 + M 0 0 * x ^ 2)) : by rw [h.ha.h, h.hc.h]
-... = ((x * M 0 0 + (y * M 0 1 + 0)) * x) + ((x * M 0 1 + (y * M 1 1 + 0)) * y + 0) : by ring
-... = ((x * M 0 0 + (y * M 1 0 + 0)) * x) + ((x * M 0 1 + (y * M 1 1 + 0)) * y + 0) : by rw [h.hb]
-... = eval_matrix' M x y : rfl
-
-/--
-  The matrix `M` represents a form `f` if their evaluations agree.
--/
-lemma eq_of_eval_matrix_eq (M : M₂ℤ) (f : quadratic_form) (hM : of_matrix_pre M) :
-  (∀ x y, eval_matrix' M x y = eval f x y * 2) → of_matrix M = f :=
+lemma eq_of_eval_eq [ring α] [decidable_eq n] (M N : quadratic_form n α) (two_mul_cancel : ∀ x y : α, 2 * x = 2 * y → x = y) (h : ∀ x, eval M x = eval N x) : M = N :=
 begin
-  intro eval_eq,
-  apply eq_of_eval_eq,
-  intros x y,
-  rw
-    [ ←@int.mul_div_cancel (eval (of_matrix M) _ _) 2 (by norm_num)
-    , ←@int.mul_div_cancel (eval f _ _) 2 (by norm_num)
-    , eval_of_matrix _ _ _ hM
-    ],
-  congr' 1,
-  apply eval_eq
+  ext i j,
+  have eq_ii : M i i = N i i := by rw [← eval_basis, ← eval_basis, h],
+  have eq_jj : M j j = N j j := by rw [← eval_basis, ← eval_basis, h],
+  by_cases hij : j = i,
+  { rw [hij, eq_ii] },
+  have eq' : M i i + 2 * M i j + M j j = N i i + 2 * N i j + N j j,
+  { rw [← eq_of_eval_eq_aux M hij, ← eq_of_eval_eq_aux N hij, h] },
+  rw [eq_ii, eq_jj] at eq',
+  apply two_mul_cancel,
+  apply add_left_cancel,
+  apply add_right_cancel,
+  exact eq'
 end
-
-/-- The conversion to a matrix always has an inverse.
-
-  The theorem `to_matrix_of_matrix` shows the other composition is also the identity.
--/
-@[simp]
-theorem of_matrix_to_matrix (f : quadratic_form) : of_matrix (to_matrix f) = f :=
-eq_of_eval_matrix_eq _ _ (of_matrix_pre_to_matrix f) (eval_to_matrix f)
 end eval
 
-lemma injective_to_matrix : function.injective to_matrix :=
-function.injective_of_left_inverse of_matrix_to_matrix
-
 section matrix_action
-local attribute [simp] matrix.mul_val
-/--
-  Integer matrices have an action on quadratic forms by multiplication on the input `(x, y)`.
+variables [comm_ring α]
 
-  In other words, `f(x, y)` is mapped to `f(αx + βy, γx + δy)` by the matrix `((α β) (γ δ)).`
+/--
+  Matrices have an action on quadratic forms by multiplication on the input.
+
+  For example, `f(x, y)` is mapped to `f(αx + βy, γx + δy)` by the matrix `((α β) (γ δ)).`
 
   We don't instantiate a class instance yet since we will look primarily at the action of PSL₂,
   on quadratic forms with fixed discriminant.
 -/
-def matrix_action (mat : M₂ℤ) (form : quadratic_form) : quadratic_form :=
-let α := mat 0 0, β := mat 0 1, γ := mat 1 0, δ := mat 1 1, a := form.a, b := form.b, c := form.c in
-  ⟨ a * α^2 + b * α * γ + c * γ^2
-  , 2 * a * α * β + b * (α * δ + β * γ) + 2 * c * γ * δ
-  , a * β^2 + b * β * δ + c * δ^2
-  ⟩
+def matrix_action (M : matrix n n α) (N : quadratic_form n α) : quadratic_form n α :=
+mk (Mᵀ ⬝ N ⬝ M) (by simp [transpose_mul, matrix.mul_assoc])
+
 local infixr ` · `:70 := matrix_action
 
 /--
   The action of a matrix `M` is the same as the action of `-M`.
 -/
-lemma action_neg_invariant (M : M₂ℤ) (f : quadratic_form) : -M · f = M · f :=
+lemma action_neg_invariant (M : matrix n n α) (f : quadratic_form n α) : -M · f = M · f :=
 by simp [matrix_action]
 
 /--
-  The action works by multiplicating vectors in `ℤ^2` with the matrix.
+  The action works by multiplying vectors with the matrix.
 -/
-@[simp] lemma eval_action (M : M₂ℤ) (f : quadratic_form) (x y : ℤ) :
-  eval (M · f) x y = eval f (M 0 0 * x + M 0 1 * y) (M 1 0 * x + M 1 1 * y) :=
-by {unfold matrix_action eval, norm_cast, ring}
-
-/--
-  The action on quadratic forms as matrices is conjugation.
--/
-def matrix_action_matrix (M N : M₂ℤ) : M₂ℤ := M.transpose ⬝ N ⬝ M
-
-/--
-  Conjugation preserves the precondition of `of_matrix`.
-
-  That is, matrices that result from a triple `⟨a, b, c⟩ : quadratic_form`
-  will also correspond to a triple after applying the matrix action.
-  We will prove later on that the action on triples and the action on matrices are the same.
--/
-lemma of_matrix_pre_action (M N : M₂ℤ) (h : of_matrix_pre N) : of_matrix_pre (matrix_action_matrix M N) := begin
-  cases h,
-  split,
-  { suffices : even ((N 1 1 * M 1 0 + 2 * N 1 0 * M 0 0) * M 1 0 + N 0 0 * M 0 0 ^ 2),
-    { convert this, simp [matrix.mul_val, matrix_action_matrix, h_hb, finset.sum_univ], ring },
-    apply even_add_even; apply even_mul,
-    { apply even_add_even; apply even_mul, assumption, exact even_mul _ _ even_2 },
-    assumption
-    },
-  { simp [matrix_action_matrix, h_hb, finset.sum_univ], ring },
-  { suffices : even ((N 1 1 * M 1 1 + 2 * N 1 0 * M 0 1) * M 1 1 + N 0 0 * M 0 1 ^ 2),
-    { convert this, simp [matrix_action_matrix, h_hb, finset.sum_univ], ring },
-    apply even_add_even; apply even_mul,
-    { apply even_add_even; apply even_mul, assumption, exact even_mul _ _ even_2 },
-    { assumption },
-  }
-end
-
-/-- Or we can view the action of `M` as multiplying the input with `M`. -/
-@[simp] lemma eval_matrix_action (M N : M₂ℤ) (xy : fin 2 → ℤ) :
-  eval_matrix (matrix_action_matrix M N) xy = eval_matrix N (matrix.mul_vec M xy) :=
-calc eval_matrix (matrix_action_matrix M N) xy
-    = (matrix.row xy ⬝ (Mᵀ ⬝ N ⬝ M) ⬝ matrix.col xy) () () : rfl
-... = ((matrix.row xy ⬝ Mᵀ) ⬝ N ⬝ (M ⬝ matrix.col xy)) () () : by repeat { rw [matrix.mul_assoc] }
-... = ((M ⬝ matrix.col xy)ᵀ ⬝ N ⬝ (M ⬝ matrix.col xy)) () () : by simp
-... = eval_matrix N (matrix.mul_vec M xy) :
-  by simp [matrix.row_mul_vec, matrix.col_mul_vec, eval_matrix, finset.sum_univ]
-
-/--
-  Conjugation corresponds to the action of matrices on quadratic forms.
--/
-lemma matrix_action_of_matrix (M N : M₂ℤ) (hN : of_matrix_pre N):
-  of_matrix (matrix_action_matrix M N) = M · (of_matrix N) :=
-begin
-  apply eq_of_eval_matrix_eq,
-  { apply of_matrix_pre_action, assumption },
-  intros x y,
-  rw [eval_matrix', eval_matrix_action, eval_action, eval_of_matrix _ _ _ hN, eval_matrix'],
-  congr,
-  ext,
-  fin_cases x_1,
-  { calc matrix.mul_vec M (vec2 x y) 0
-        = M 0 0 * vec2 x y 0 + M 0 1 * vec2 x y 1 : by simp [matrix.mul_vec, finset.sum_univ]
-    ... = vec2 (M 0 0 * x + M 0 1 * y) (M 1 0 * x + M 1 1 * y) 0 : rfl },
-  { calc matrix.mul_vec M (vec2 x y) 1
-      = M 1 0 * vec2 x y 0 + M 1 1 * vec2 x y 1 : by simp [matrix.mul_vec, finset.sum_univ]
-    ... = vec2 (M 0 0 * x + M 0 1 * y) (M 1 0 * x + M 1 1 * y) 1 : rfl }
-end
-
-/--
-  Conjugation corresponds to the action of matrices on quadratic forms.
--/
-lemma matrix_action_to_matrix (M : M₂ℤ) (f : quadratic_form) :
-matrix_action_matrix M (to_matrix f) = to_matrix (M · f) :=
-by rw
-    [ ←of_matrix_to_matrix f
-    , to_matrix_of_matrix (to_matrix f) (of_matrix_pre_to_matrix f)
-    , ←matrix_action_of_matrix _ _ (of_matrix_pre_to_matrix f)
-    , to_matrix_of_matrix _ (of_matrix_pre_action _ _ (of_matrix_pre_to_matrix f))
-    ]
+@[simp] lemma eval_action (M : matrix n n α) (f : quadratic_form n α) (x : n → α) :
+  eval (M · f) x = eval f (M.mul_vec x) :=
+by simp [eval, matrix_action, row_mul_vec, col_mul_vec, matrix.mul_assoc]
 
 /--
   The identity matrix gives the identity action.
 -/
-lemma matrix_action_identity (f : quadratic_form) : matrix_action 1 f = f := begin
-apply injective_to_matrix,
-simp [symm (matrix_action_to_matrix 1 f), matrix_action_matrix]
-end
+@[simp] lemma matrix_action_identity [decidable_eq n] (f : quadratic_form n α) :
+  matrix_action 1 f = f :=
+by simp [matrix_action]
 
 /--
   Applying the product of two matrices is the same as applying the matrices consecutively.
 -/
-lemma matrix_action_mul (M N : M₂ℤ) (f : quadratic_form) :
-  matrix_action (M * N) f = matrix_action N (matrix_action M f) :=
-begin
-  apply injective_to_matrix,
-  rw [←matrix_action_to_matrix, ←matrix_action_to_matrix, ←matrix_action_to_matrix, matrix_action_matrix, matrix_action_matrix, matrix_action_matrix],
-  simp [matrix.mul_assoc]
-end
+@[simp]
+lemma matrix_action_mul (M N : matrix n n α) (f : quadratic_form n α) :
+  (M ⬝ N) · f = N · (M · f) :=
+by simp [matrix_action, matrix.mul_assoc]
 
 end matrix_action
 
 section discr
 open_locale matrix_action
-/--
-  The discriminant of a quadratic form.
--/
-def discr (form : quadratic_form) : ℤ := form.b^2 - 4 * form.a * form.c
+
+variables [comm_ring α] [decidable_eq n]
 
 /--
-  The discriminant of a matrix representation comes from its determinant.
+  The discriminant of a matrix representation is given by its determinant.
 -/
-def discr_matrix (M : M₂ℤ) : ℤ := - M.det
-
-/--
-  The two ways to get a discriminant are equal.
--/
-lemma discr_eq_discr_matrix (f : quadratic_form) : discr_matrix (to_matrix f) = f.discr := calc
-discr_matrix (to_matrix f)
-    = (to_matrix f) 0 1 * (to_matrix f) 1 0 - (to_matrix f) 0 0 * (to_matrix f) 1 1 :
-      by { unfold discr_matrix, rw [matrix.det_2x2], ring }
-... = f.discr : by { simp [discr], ring }
+def discr (M : quadratic_form n α) : α := matrix.det M
 
 /--
   Matrices with determinant = 1 preserve the discriminant of a quadratic form.
 -/
-theorem det_invariant_for_SL (f : quadratic_form) (M : SL₂ℤ) : discr (matrix_action M.1 f) = f.discr := calc
-discr (matrix_action M.1 f)
-    = discr_matrix (to_matrix (matrix_action M.1 f)) : symm (discr_eq_discr_matrix _)
-... = discr_matrix (matrix_action_matrix M.1 (to_matrix f)) : by rw [matrix_action_to_matrix]
-... = - (M.1ᵀ ⬝ to_matrix f ⬝ M.1).det : by rw [discr_matrix, matrix_action_matrix]
-... = - (M.1.det * (to_matrix f).det * M.1.det) :
-  by rw [matrix.det_mul, matrix.det_mul, matrix.det_transpose]
-... = discr_matrix (to_matrix f) : by simp [discr_matrix, M.2]
-... = f.discr : discr_eq_discr_matrix _
+theorem det_invariant_for_SL (f : quadratic_form n α) (M : special_linear_group n α) :
+  discr (matrix_action M.1 f) = f.discr :=
+by simp [discr, matrix_action, M.2]
 end discr
 
 section class_number
@@ -420,18 +219,18 @@ section class_number
 variable {d : ℤ}
 
 -- TODO: better name!
-@[ext]
-structure QF (d : ℤ) :=
-(form : quadratic_form) (fix_discr : form.discr = d)
+def QF (d : ℤ) := {f : quadratic_form (fin 2) ℤ // f.discr = d}
 
 -- Turn right action of M into a left action by replacing M with M⁻¹.
 -- TODO: can we do this better?
 instance : has_scalar SL₂ℤ (QF d) :=
-⟨λ M f, ⟨matrix_action M⁻¹.1 f.1, trans (det_invariant_for_SL f.1 M⁻¹) f.fix_discr⟩⟩
-instance : mul_action SL₂ℤ (QF d) := ⟨
-λ f, QF.ext _ _ (matrix_action_identity _),
-λ M N f, QF.ext _ _ (trans (congr_arg2 (λ (M : SL₂ℤ) f, matrix_action M.1 f) (mul_inv_rev M N) rfl)
-                           (matrix_action_mul _ _ _))⟩
+⟨λ M f, ⟨matrix_action M⁻¹.1 f.1, trans (det_invariant_for_SL f.1 M⁻¹) f.2⟩⟩
+
+@[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action ↑(M⁻¹) f.1 := rfl
+
+instance : mul_action SL₂ℤ (QF d) :=
+⟨ λ f, subtype.ext.mpr (by simp),
+  λ M N f, subtype.ext.mpr (by simp) ⟩
 
 -- TODO: better name!
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M.α = 1 ∧ M.β = m ∧ M.γ = 0 ∧ M.δ = 1 }
@@ -443,15 +242,12 @@ instance : is_subgroup Γ_infinity :=
 
 instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
 def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
-⟨one_smul α, λ x y, @mul_smul α _ _ _ x.1 y.1⟩
+⟨one_smul α, λ x y, @_root_.mul_smul α _ _ _ x.1 y.1⟩
 
 /-- Quadratic forms are considered equivalent if they share the same orbit modulo Γ_infinity. -/
-def F (d : ℤ) : Type := quotient begin
-haveI := @submonoid_mul_action SL₂ℤ (QF d) _ _ Γ_infinity,
-exact (mul_action.orbit_rel Γ_infinity (QF d))
-end-- TODO: better name!
+def F (d : ℤ) : Type := quotient (@mul_action.orbit_rel Γ_infinity (QF d) _ (submonoid_mul_action _))
 
-theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (ℤ√ d)) = cardinal.mk (F d)
+theorem class_number_via_quadratic_form (d : ℤ) : cardinal.mk (class_group (ℤ√ d)) = cardinal.mk (F d) := sorry
 
 end class_number
 
