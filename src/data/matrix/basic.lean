@@ -145,7 +145,6 @@ end numeral
 end diagonal
 
 section dot_product
-
 /-- `dot_product v w` is the sum of the entrywise products `v i * w i` -/
 def dot_product [has_mul α] [add_comm_monoid α] (v w : m → α) : α :=
 ∑ i, v i * w i
@@ -557,5 +556,81 @@ lemma row_mul_vec [semiring α] (M : matrix m n α) (v : n → α) :
   matrix.row (matrix.mul_vec M v) = (M ⬝ matrix.col v)ᵀ := by {ext, refl}
 
 end row_col
+
+section notation_lemmas
+
+open finset
+
+@[simp] lemma insert_val_zero {m : ℕ} (u : fin m → α) (x : α) :
+  vector_insert x u 0 = x :=
+rfl
+
+@[simp] lemma insert_val_succ {m : ℕ} (u : fin m → α) (x : α) (i : fin m) :
+  vector_insert x u (fin.succ i) = u i :=
+fin.cons_succ _ _ _
+
+@[simp] lemma insert_comp_succ {m : ℕ} (u : fin m → α) (x : α) :
+  vector_insert x u ∘ fin.succ = u :=
+by { ext, simp }
+
+@[simp] lemma empty_mul [add_comm_monoid α] [has_mul α] {n o : ℕ} (B : matrix (fin n) (fin o) α) :
+  ![] ⬝ B = ![] :=
+by { ext i j, cases i with _ i_lt, cases i_lt }
+
+@[simp] lemma mul_empty [add_comm_monoid α] [has_mul α] {n : ℕ} (A : matrix (fin n) (fin 0) α) :
+  A ⬝ ![] = λ _, ![] :=
+by { ext i j, cases j with _ j_lt, cases j_lt }
+
+@[simp] lemma succ_mul [semiring α] {m n o : ℕ} (A : matrix (fin m.succ) (fin n) α) (B : matrix (fin n) (fin o) α) :
+  A ⬝ B = vector_insert (vec_mul (A 0) B) (A ∘ fin.succ ⬝ B) :=
+by { ext i j, refine fin.cases _ _ i, { refl }, simp [matrix.mul] }
+
+@[simp] lemma vec_mul_empty [semiring α] {n : ℕ} (v : fin n → α) (B : matrix (fin n) (fin 0) α) :
+  vec_mul v B = ![] :=
+by { ext i, cases i with _ i_lt, cases i_lt }
+
+@[simp] lemma vec_mul_succ [semiring α] {n o : ℕ} (v : fin n → α) (B : matrix (fin n) (fin o.succ) α) :
+  vec_mul v B = vector_insert (dot_product v (Bᵀ 0)) (vec_mul v (λ i, B i ∘ fin.succ)) :=
+by { ext i, refine fin.cases _ _ i, { refl }, intro i, simp, refl }
+
+@[simp] lemma dot_product_empty [add_comm_monoid α] [has_mul α] (v v' : fin 0 → α) :
+  dot_product v v' = 0 :=
+rfl
+
+@[simp, to_additive]
+lemma finset.prod_succ {n : ℕ} {v : fin n.succ → α} [comm_monoid α] :
+  univ.prod v = v 0 * univ.prod (v ∘ fin.succ) :=
+calc univ.prod v = v 0 * (univ.erase 0).prod v :
+  begin
+    conv_lhs { rw [← insert_erase (mem_univ (0 : fin n.succ))] },
+    rw [prod_insert (not_mem_erase _ _)]
+  end
+             ... = v 0 * univ.prod (v ∘ fin.succ) :
+  begin
+    refine congr_arg2 _ rfl (prod_bij (λ (a : fin n) _, a.succ) _ _ _ _).symm,
+    { simp [fin.succ_ne_zero] },
+    { intros, refl },
+    { simp },
+    { rintros ⟨b, b_is_lt⟩,
+      rw [mem_erase],
+      rintros ⟨b_ne_zero, _⟩,
+      cases b,
+      { exact absurd rfl b_ne_zero },
+      { use ⟨b, nat.lt_of_succ_lt_succ b_is_lt⟩,
+        use mem_univ _,
+        refl } }
+  end
+
+@[simp] lemma dot_product_succ [add_comm_monoid α] [has_mul α] {n : ℕ} (v v' : fin n.succ → α) :
+  dot_product v v' = v 0 * v' 0 + dot_product (v ∘ fin.succ) (v' ∘ fin.succ) :=
+finset.sum_succ
+
+@[simp] lemma zero_empty [has_zero α] : (0 : fin 0 → α) = ![] :=
+by { ext i, cases i with _ i_lt, cases i_lt }
+
+@[simp] lemma zero_succ [has_zero α] {n : ℕ} : (0 : fin n.succ → α) = vector_insert 0 0 :=
+by { ext i j, refine fin.cases _ _ i, { refl }, simp }
+
+end notation_lemmas
 
 end matrix

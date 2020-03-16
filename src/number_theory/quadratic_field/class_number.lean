@@ -5,7 +5,7 @@ import group_theory.group_action
 import group_theory.quotient_group
 import linear_algebra.special_linear_group
 import number_theory.class_group
-import order.basic
+import order.lexicographic
 import tactic.fin_cases
 import tactic.linarith
 
@@ -16,41 +16,8 @@ universes u v
 open_locale matrix
 open finset
 
--- TODO: use nicer matrix notation
 notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
 notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
-namespace matrix.special_linear_group
-def α (M : SL₂ℤ) : ℤ := M.1 0 0
-def β (M : SL₂ℤ) : ℤ := M.1 0 1
-def γ (M : SL₂ℤ) : ℤ := M.1 1 0
-def δ (M : SL₂ℤ) : ℤ := M.1 1 1
-
-variables (M N : SL₂ℤ)
-
-@[simp] lemma α_mul : (M * N).α = M.α * N.α + M.β * N.γ :=
-by { have : (M * N).α = M.α * N.α + (M.β * N.γ + 0) := rfl, simp [this] }
-@[simp] lemma β_mul : (M * N).β = M.α * N.β + M.β * N.δ :=
-by { have : (M * N).β = M.α * N.β + (M.β * N.δ + 0) := rfl, simp [this] }
-@[simp] lemma γ_mul : (M * N).γ = M.γ * N.α + M.δ * N.γ :=
-by { have : (M * N).γ = M.γ * N.α + (M.δ * N.γ + 0) := rfl, simp [this] }
-@[simp] lemma δ_mul : (M * N).δ = M.γ * N.β + M.δ * N.δ :=
-by { have : (M * N).δ = M.γ * N.β + (M.δ * N.δ + 0) := rfl, simp [this] }
-
-@[simp] lemma α_inv : (M⁻¹).α = M.δ :=
-by { have : (M⁻¹).α = (1 * (1 * (M.δ * 1))) + (((-1) * (M.γ * 0)) + 0) := rfl, simp [this] }
-@[simp] lemma β_inv : (M⁻¹).β = -M.β :=
-by { have : (M⁻¹).β = (1 * (M.α * 0)) + (((-1) * (1 * (M.β * 1))) + 0) := rfl, simp [this] }
-@[simp] lemma γ_inv : (M⁻¹).γ = -M.γ :=
-by { have : (M⁻¹).γ = (1 * (0 * (M.δ * 1))) + (((-1) * (M.γ * 1)) + 0) := rfl, simp [this] }
-@[simp] lemma δ_inv : (M⁻¹).δ = M.α :=
-by { have : (M⁻¹).δ = (1 * (M.α * 1)) + (((-1) * (0 * (M.β * 1))) + 0) := rfl, simp [this] }
-
-lemma det_2x2 {α} [comm_ring α] (M : matrix (fin 2) (fin 2) α) :
-M.det = M 0 0 * M 1 1 - M 0 1 * M 1 0 := calc
-M.det = (0 + 1) * (M 0 0 * (M 1 1 * 1)) + ((- (0 + 1) * (M 1 0 * (M 0 1 * 1))) + 0) : refl _
-... = M 0 0 * M 1 1 - M 0 1 * M 1 0 : by ring
-
-end matrix.special_linear_group
 
 /-- We represent a quadratic form in `n` variables with a symmetric `n` by `n` matrix.
 
@@ -163,10 +130,11 @@ mk (M ⬝ N ⬝ Mᵀ) (by simp [matrix.mul_assoc, transpose_coe_fn])
 
 local infixr ` · `:70 := matrix_action
 
-/--
-  The action of a matrix `M` is the same as the action of `-M`.
--/
-lemma action_neg_invariant (M : matrix n n α) (f : quadratic_form n α) : -M · f = M · f :=
+lemma coe_fn_mul_action (M : matrix n n α) (f : quadratic_form n α) :
+  ⇑(M · f) = M ⬝ f ⬝ Mᵀ
+:= rfl
+
+lemma neg_action (M : matrix n n α) (f : quadratic_form n α) : -M · f = M · f :=
 by simp [matrix_action]
 
 /--
@@ -176,20 +144,13 @@ by simp [matrix_action]
   eval (M · f) x = eval f (M.vec_mul x) :=
 by simp [eval, matrix_action, row_vec_mul, col_vec_mul, matrix.mul_assoc]
 
-/--
-  The identity matrix gives the identity action.
--/
 @[simp] lemma matrix_action_identity [decidable_eq n] (f : quadratic_form n α) :
   matrix_action 1 f = f :=
 by simp [matrix_action]
 
-/--
-  Applying the product of two matrices is the same as applying the matrices consecutively.
--/
-@[simp]
-lemma matrix_action_mul (M N : matrix n n α) (f : quadratic_form n α) :
+@[simp] lemma matrix_action_mul (M N : matrix n n α) (f : quadratic_form n α) :
   (M ⬝ N) · f = M · (N · f) :=
-by simp [matrix_action, matrix.mul_assoc]
+by { ext, simp [coe_fn_mul_action, matrix.mul_assoc] }
 
 end matrix_action
 
@@ -228,17 +189,25 @@ instance : has_scalar SL₂ℤ (QF d) :=
 
 @[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action ↑M f.1 := rfl
 
+@[simp] lemma coe_smul (M : SL₂ℤ) (f : QF d) : ↑(M • f) = matrix_action ↑M f.1 := rfl
+
+@[simp] lemma coe_fn_smul (M : SL₂ℤ) (f : QF d) : ⇑(M • f) = matrix_action ↑M f.1 := rfl
+
 instance : mul_action SL₂ℤ (QF d) :=
-⟨ λ f, subtype.ext.mpr (by rw [smul_val, special_linear_group.one_val, matrix_action_identity]),
-λ M N f, subtype.ext.mpr (by { simp, refl }) ⟩
+⟨ λ f, subtype.ext.mpr (matrix_action_identity f),
+  λ M N f, subtype.ext.mpr (matrix_action_mul M N f) ⟩
 
 -- TODO: better name!
-def Γ_infinity : set SL₂ℤ := { M | ∃ m, M.α = 1 ∧ M.β = m ∧ M.γ = 0 ∧ M.δ = 1 }
+def Γ_infinity : set SL₂ℤ := { M | ∃ m, M 0 0 = 1 ∧ M 0 1 = m ∧ M 1 0 = 0 ∧ M 1 1 = 1 }
+
+@[simp] lemma fin.succ_zero {n : ℕ} (p : 0 < n) :
+  fin.succ ⟨0, p⟩ = 1 :=
+sorry
 
 instance : is_submonoid Γ_infinity :=
-⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, by { cases ha, cases hb, split; simp [add_comm, *] }⟩⟩
+⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, sorry ⟩⟩
 instance : is_subgroup Γ_infinity :=
-⟨λ a ⟨ma, ha⟩, ⟨-ma, by { cases ha, split; simp * }⟩⟩
+⟨λ a ⟨ma, ha⟩, ⟨-ma, sorry ⟩⟩
 
 instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
 def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
@@ -252,38 +221,127 @@ end class_number
 
 section reduced
 
-variables [ordered_ring α] {d : ℤ}
+variables {d : ℤ}
 
-def is_positive_definite (M : quadratic_form n α) : Prop := ∀ x ≠ 0, eval M x > 0
+def is_positive_definite (f : QF d) : Prop := ∀ x ≠ 0, eval f.val x > 0
 
-def is_reduced (f : quadratic_form (fin 2) ℤ) : Prop :=
+lemma val_0_0_pos (f : QF d) (h : is_positive_definite f) : 0 < f 0 0 :=
+begin
+  convert h (λ i, if i = 0 then 1 else 0) _,
+  { exact (eval_basis f.val 0).symm },
+  intro eq_0,
+  simpa using congr_fun eq_0 0,
+end
+
+lemma special_linear_group.vec_mul_injective {A : SL₂ℤ} {v v' : fin 2 → ℤ} (h : vec_mul v A = vec_mul v' A) :
+  v = v' :=
+calc v = vec_mul v ↑(A * A⁻¹) : by simp [-vec_mul_succ, vec_mul_one]
+   ... = vec_mul (vec_mul v A) ↑A⁻¹ : sorry
+   ... = vec_mul v' ↑(A * A⁻¹) : sorry
+   ... = v' : sorry
+
+lemma is_positive_definite_smul (f : QF d) (M : SL₂ℤ) (h : is_positive_definite f) :
+  is_positive_definite (M • f) :=
+λ x hx, begin
+  rw [smul_val, eval_action],
+  apply h,
+  intro hx',
+  apply hx,
+  apply special_linear_group.vec_mul_injective (trans hx' _),
+  simp
+end
+
+def is_reduced (f : QF d) : Prop :=
 abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
 
+/-- A well-founded order of quadratic forms, such that reduced forms are minimal. -/
+def reduced_order_key (f : QF d) : lex ℤ (lex ℤ ℤ) :=
+⟨f 0 0, abs (f 1 0), f 1 1⟩
+
+/-- A well-founded order of quadratic forms, such that reduced forms are minimal. -/
+instance : has_lt (QF d) :=
+⟨function.on_fun (<) reduced_order_key⟩
+
+lemma well_founded_reduced_order : well_founded ((<) : QF d → QF d → Prop) :=
+sorry
+
+/-- `swap_x_y` is a matrix whose action swaps the coefficient for `x²` and `y²` -/
+def swap_x_y : SL₂ℤ := ⟨![![0, -1], ![1, 0]], rfl⟩
+
+lemma swap_x_y_smul (f : QF d) :
+  (⇑(swap_x_y • f) : M₂ℤ) = ![![0, -1], ![1, 0]] ⬝ f ⬝ ![![0, 1], ![-1, 0]] :=
+sorry
+
+lemma swap_x_y_smul_0_0 (f : QF d) : (swap_x_y • f) 0 0 = f 1 1 :=
+by { simp [swap_x_y_smul], refl }
+
+lemma swap_x_y_lt {f : QF d} (h : f 1 1 < f 0 0) : (swap_x_y • f) < f :=
+prod.lex.left _ _ _ (by { rw swap_x_y_smul_0_0 f, exact h })
+
+/-- `change_xy k` changes the coefficient for `xy` while keeping the coefficient for `x²` the same -/
+def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], sorry⟩
+
+lemma change_xy_smul (k : ℤ) (f : QF d) :
+  (⇑(change_xy k • f) : M₂ℤ) = ![![1, 0], ![k, 1]] ⬝ f ⬝ ![![1, k], ![0, 1]] :=
+sorry
+
+lemma change_xy_smul_0_0 (k : ℤ) (f : QF d) : (change_xy k • f) 0 0 = f 0 0 :=
+by { simp [change_xy_smul] }
+
+lemma change_xy_smul_1_0 (k : ℤ) (f : QF d) : (change_xy k • f) 1 0 = k * f 0 0 + f 1 0 :=
+by { simp [change_xy_smul], refl }
+
+lemma change_xy_lt {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) < abs (f 1 0)) : (change_xy k • f) < f :=
+(prod.lex_def _ _).mpr (or.inr ⟨
+  change_xy_smul_0_0 k f,
+  prod.lex.left _ _ _ (by { rw change_xy_smul_1_0 k f, exact h }) ⟩ )
+
+lemma int.le_div_mul (a b : ℤ) : a - b ≤ (a / b) * b := sorry
+
 /-- In each orbit, there is a unique reduced quadratic form -/
-lemma unique_reduced_mem_orbit (M : QF d) :
-  ∃! (f : QF d), f ∈ mul_action.orbit SL₂ℤ M ∧ is_reduced f :=
+lemma unique_reduced_mem_orbit (M : QF d) (M_pos_def : is_positive_definite M) :
+  ∃! f, f ∈ mul_action.orbit SL₂ℤ M ∧ is_reduced f :=
 begin
-  have : well_founded (function.on_fun (<) (λ (f : QF d), f 0 0)),
-  { sorry },
-  obtain ⟨f, ⟨N, hf⟩, min⟩ := @well_founded.has_min _ (function.on_fun (<) (λ (f : QF d), f 0 0)) this (mul_action.orbit SL₂ℤ M) ⟨M, mul_action.orbit_eq_iff.mp rfl⟩,
+  obtain ⟨f, ⟨N, hf⟩, min⟩ := well_founded.has_min well_founded_reduced_order (mul_action.orbit SL₂ℤ M) ⟨M, mul_action.orbit_eq_iff.mp rfl⟩,
+  have f_pos_def : is_positive_definite f,
+  { rw ←hf, apply is_positive_definite_smul, exact M_pos_def },
   use f,
   use ⟨N, hf⟩,
+  have a_pos : f 0 0 > 0 := val_0_0_pos _ _,
   { by_cases c_lt_a : f 1 1 < f 0 0,
     { exfalso,
-      let N' : SL₂ℤ := ⟨![![0, -1], ![1, 0]], sorry⟩,
-      let f' : QF d := N' • f,
-      have : f' ∈ mul_action.orbit SL₂ℤ M :=
-      ⟨ N' * N, trans (_root_.mul_smul N' N M) (congr_arg _ hf) ⟩,
-      apply min f' this,
-      sorry },
+      have : swap_x_y • f ∈ mul_action.orbit SL₂ℤ M :=
+      ⟨ swap_x_y * N, trans (_root_.mul_smul swap_x_y N M) (congr_arg _ hf) ⟩,
+      apply min (swap_x_y • f) this,
+      exact swap_x_y_lt c_lt_a },
+    have a_le_c : f 0 0 ≤ f 1 1 := le_of_not_gt c_lt_a,
+
     by_cases a_lt_b : f 0 0 < abs (f 1 0),
     { exfalso,
-      sorry },
-    split,
+      have : change_xy ((f 0 0 - f 1 0) / f 0 0) • f ∈ mul_action.orbit SL₂ℤ M :=
+      ⟨ change_xy _ * N, trans (_root_.mul_smul (change_xy _) N M) (congr_arg _ hf) ⟩,
+      apply min (change_xy _ • f) this,
+      refine change_xy_lt (lt_of_le_of_lt (abs_le.mpr (and.intro _ _)) a_lt_b),
+      { apply le_trans _ (add_le_add_right (int.le_div_mul _ _) _),
+        apply le_of_lt,
+        apply neg_lt.mp,
+        apply lt_of_le_of_lt _ a_pos,
+        linarith },
+      { apply le_trans (add_le_add_right (int.div_mul_le _ (ne_of_gt a_pos)) _),
+        norm_num } },
+    have b_le_a : abs (f 1 0) ≤ f 0 0 := le_of_not_gt a_lt_b,
+
+    use b_le_a,
+    use le_of_not_gt c_lt_a,
+    by_cases b_pos : 0 ≤ f 1 0,
+    { intro,
+      assumption },
+    rintros (b_eq_a | a_eq_c),
     { sorry },
-    split,
-    { apply le_of_not_gt c_lt_a },
     sorry },
+
+  exact f_pos_def,
+
   rintros g ⟨g_mem_orbit, g_is_reduced⟩,
   have := min g g_mem_orbit,
   sorry
