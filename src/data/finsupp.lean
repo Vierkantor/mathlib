@@ -1352,12 +1352,12 @@ calc (f.sum (λ a g, g.sum (λ b c, single (a, b) c))) (x, y)
 ... = f.support.sum (λ a, (f a).support.sum (λ b, if (a, b) = (x, y) then f a b else 0))
     : rfl
 ... = f.support.sum (λ a, (f a).support.sum (λ b, if a = x then if b = y then f a b else 0 else 0))
-    : by { congr, ext a, congr, ext b, simp, convert (ite_and _ _ (f a b) 0) }
+    : by { congr, ext a, congr, ext b, simp }
 ... = f.support.sum (λ a, if a = x then (f a).support.sum (λ b, if b = y then f a b else 0) else 0)
     : by { congr, ext a, by_cases a = x; simp [h] }
 ... = if x ∈ f.support then if (y ∈ (f x).support) then f x y else 0 else 0
     : by { rw [finset.sum_ite_eq'], congr, rw [finset.sum_ite_eq'] }
-... = f x y : by { by_cases hx : f x = 0, { simp [hx], rw [hx], refl }, by_cases hxy : f x y = 0; simp [hx, hxy] }
+... = f x y : by { by_cases hx : f x = 0, { simp [hx] }, by_cases hxy : f x y = 0; simp [hx, hxy] }
 -- TODO: cleanup
 
 @[simp] lemma uncurry_zero [add_comm_monoid γ] : (0 : α →₀ β →₀ γ).uncurry = 0 := rfl
