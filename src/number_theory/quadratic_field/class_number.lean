@@ -187,11 +187,13 @@ instance QF_to_fn : has_coe_to_fun (QF d) := ⟨ λ f, fin 2 → fin 2 → ℤ, 
 instance : has_scalar SL₂ℤ (QF d) :=
 ⟨λ M f, ⟨matrix_action M.1 f.1, trans (det_invariant_for_SL f.1 M) f.2⟩⟩
 
-@[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action ↑M f.1 := rfl
+@[simp] lemma smul_val (M : SL₂ℤ) (f : QF d) : (M • f).val = matrix_action M f := rfl
 
-@[simp] lemma coe_smul (M : SL₂ℤ) (f : QF d) : ↑(M • f) = matrix_action ↑M f.1 := rfl
+@[simp] lemma coe_smul (M : SL₂ℤ) (f : QF d) : ↑(M • f) = matrix_action M f := rfl
 
-@[simp] lemma coe_fn_smul (M : SL₂ℤ) (f : QF d) : ⇑(M • f) = matrix_action ↑M f.1 := rfl
+@[simp] lemma coe_fn_smul (M : SL₂ℤ) (f : QF d) : ⇑(M • f) = matrix_action M f := rfl
+
+lemma QF_coe_fn_symmetric (f : QF d) (i j : fin 2) : f i j = f j i := coe_fn_symmetric f
 
 instance : mul_action SL₂ℤ (QF d) :=
 ⟨ λ f, subtype.ext.mpr (matrix_action_identity f),
@@ -200,9 +202,7 @@ instance : mul_action SL₂ℤ (QF d) :=
 -- TODO: better name!
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M 0 0 = 1 ∧ M 0 1 = m ∧ M 1 0 = 0 ∧ M 1 1 = 1 }
 
-@[simp] lemma fin.succ_zero {n : ℕ} (p : 0 < n) :
-  fin.succ ⟨0, p⟩ = 1 :=
-sorry
+@[simp] lemma fin.one : (1 : fin 2) = fin.succ 0 := rfl
 
 instance : is_submonoid Γ_infinity :=
 ⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, sorry ⟩⟩
@@ -225,12 +225,20 @@ variables {d : ℤ}
 
 def is_positive_definite (f : QF d) : Prop := ∀ x ≠ 0, eval f.val x > 0
 
-lemma val_0_0_pos (f : QF d) (h : is_positive_definite f) : 0 < f 0 0 :=
+lemma val_0_0_pos {f : QF d} (h : is_positive_definite f) : 0 < f 0 0 :=
 begin
-  convert h (λ i, if i = 0 then 1 else 0) _,
+  convert h (λ i, if 0 = i then 1 else 0) _,
   { exact (eval_basis f.val 0).symm },
   intro eq_0,
   simpa using congr_fun eq_0 0,
+end
+
+lemma val_1_1_pos {f : QF d} (h : is_positive_definite f) : 0 < f 1 1 :=
+begin
+  convert h (λ i, if 1 = i then 1 else 0) _,
+  { exact (eval_basis f.val 1).symm },
+  intro eq_0,
+  simpa [-matrix.zero_succ] using congr_fun eq_0 1
 end
 
 lemma special_linear_group.vec_mul_injective {A : SL₂ℤ} {v v' : fin 2 → ℤ} (h : vec_mul v A = vec_mul v' A) :
@@ -240,7 +248,7 @@ calc v = vec_mul v ↑(A * A⁻¹) : by simp [-vec_mul_succ, vec_mul_one]
    ... = vec_mul v' ↑(A * A⁻¹) : sorry
    ... = v' : sorry
 
-lemma is_positive_definite_smul (f : QF d) (M : SL₂ℤ) (h : is_positive_definite f) :
+lemma is_positive_definite_smul {f : QF d} (M : SL₂ℤ) (h : is_positive_definite f) :
   is_positive_definite (M • f) :=
 λ x hx, begin
   rw [smul_val, eval_action],
@@ -251,32 +259,147 @@ lemma is_positive_definite_smul (f : QF d) (M : SL₂ℤ) (h : is_positive_defin
   simp
 end
 
+lemma pos_def_of_mem_orbit {f g : QF d}
+  (hf : is_positive_definite f) (hg : g ∈ mul_action.orbit SL₂ℤ f) :
+  is_positive_definite g :=
+by { rcases hg with ⟨M, ⟨⟩⟩, exact is_positive_definite_smul M hf}
+
+
+lemma a_pos_of_mem_orbit_pos_def {f g : QF d}
+  (hf : is_positive_definite f) (hg : g ∈ mul_action.orbit SL₂ℤ f) : g 0 0 > 0 :=
+val_0_0_pos (pos_def_of_mem_orbit hf hg)
+
+lemma c_pos_of_mem_orbit_pos_def {f g : QF d}
+  (hf : is_positive_definite f) (hg : g ∈ mul_action.orbit SL₂ℤ f) : g 1 1 > 0 :=
+val_1_1_pos (pos_def_of_mem_orbit hf hg)
+
 def is_reduced (f : QF d) : Prop :=
 abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
 
-/-- A well-founded order of quadratic forms, such that reduced forms are minimal. -/
-def reduced_order_key (f : QF d) : lex ℤ (lex ℤ ℤ) :=
-⟨f 0 0, abs (f 1 0), f 1 1⟩
+def sign' : ℤ → fin 3
+| (n+1:ℕ) := 0
+| 0       := 1
+| -[1+ n] := 2
+
+lemma sign'_of_pos : Π {a : ℤ} (h : 0 < a), sign' a = 0
+| (n+1:ℕ) h := rfl
+| 0       h := by cases h
+| -[1+ n] h := by cases h
+
+lemma sign'_of_neg : Π {a : ℤ} (h : a < 0), sign' a = 2
+| (n+1:ℕ) h := by cases h
+| 0       h := by cases h
+| -[1+ n] h := rfl
+
+def sign'_to_sign : fin 3 → ℤ
+| ⟨0, _⟩ := 1
+| ⟨1, _⟩ := 0
+| _ := -1
+
+lemma sign'_to_sign_of_sign' : ∀ a, sign'_to_sign (sign' a) = a.sign
+| (n+1:ℕ) := rfl
+| 0       := rfl
+| -[1+ n] := rfl
 
 /-- A well-founded order of quadratic forms, such that reduced forms are minimal. -/
+def reduced_order_key (f : QF d) : lex ℕ (lex ℕ (lex (fin 3) ℕ)) :=
+⟨(f 0 0).nat_abs, (f 1 0).nat_abs, sign' (f 1 0), (f 1 1).nat_abs⟩
+
+lemma int.nat_abs_pos {a : ℤ} (ha : 0 < a) : (↑(a.nat_abs) : ℤ) = a :=
+calc (↑(a.nat_abs) : ℤ) = a.sign * a.nat_abs : by simp [int.sign_eq_one_of_pos ha]
+                    ... = a : int.sign_mul_nat_abs a
+
+lemma int.nat_abs_of_neg {a : ℤ} (ha : a < 0) : (↑(a.nat_abs) : ℤ) = -a :=
+calc (↑(a.nat_abs) : ℤ) = -(a.sign * a.nat_abs) : by simp [int.sign_eq_neg_one_of_neg ha]
+                    ... = -a : by rw int.sign_mul_nat_abs a
+
+lemma int.nat_abs_le {a b : ℤ} (ha : 0 < a) (h : a ≤ b) : a.nat_abs ≤ b.nat_abs :=
+int.coe_nat_le.mp (by { convert h; apply int.nat_abs_pos; linarith })
+
+lemma int.nat_abs_lt {a b : ℤ} (ha : 0 < a) (h : a < b) : a.nat_abs < b.nat_abs :=
+int.coe_nat_lt.mp (by { convert h; apply int.nat_abs_pos; linarith })
+
+lemma int.nat_abs_eq : Π {a b : ℤ}, a.nat_abs = b.nat_abs ↔ abs a = abs b :=
+by simp [int.abs_eq_nat_abs]
+
+lemma int.nat_abs_lt_of_abs_lt {a b : ℤ} (h : abs a < abs b) : a.nat_abs < b.nat_abs :=
+int.coe_nat_lt.mp (by { convert h; sorry })
+
+lemma key_injective_on_pos_def {f g : QF d} (hf : is_positive_definite f) (hg : is_positive_definite g) :
+  reduced_order_key f = reduced_order_key g → f = g :=
+begin
+  intro h,
+  cases f with f,
+  cases g with g,
+
+  have : f 1 0 = g 1 0 :=
+  calc f 1 0 = (f 1 0).sign * (f 1 0).nat_abs : (int.sign_mul_nat_abs _).symm
+         ... = sign'_to_sign (sign' (f 1 0)) * (f 1 0).nat_abs : by rw sign'_to_sign_of_sign'
+         ... = sign'_to_sign (reduced_order_key ⟨f, _⟩).snd.snd.fst * (reduced_order_key ⟨f, _⟩).snd.fst : rfl
+         ... = sign'_to_sign (reduced_order_key ⟨g, _⟩).snd.snd.fst * (reduced_order_key ⟨g, _⟩).snd.fst : by rw h
+         ... = sign'_to_sign (sign' (g 1 0)) * (g 1 0).nat_abs : rfl
+         ... = (g 1 0).sign * (g 1 0).nat_abs : by rw sign'_to_sign_of_sign'
+         ... = g 1 0 : int.sign_mul_nat_abs _,
+  congr,
+  ext,
+  fin_cases i; fin_cases j,
+  { calc f 0 0 = (f 0 0).nat_abs : (int.nat_abs_pos (val_0_0_pos hf)).symm
+           ... = (reduced_order_key ⟨f, _⟩).fst : rfl
+           ... = (reduced_order_key ⟨g, _⟩).fst : by rw h
+           ... = (g 0 0).nat_abs : rfl
+           ... = g 0 0 : int.nat_abs_pos (val_0_0_pos hg) },
+  { calc f 0 1 = f 1 0 : coe_fn_symmetric f
+           ... = g 1 0 : this
+           ... = g 0 1 : coe_fn_symmetric g },
+  { exact this },
+  { calc f 1 1 = (f 1 1).nat_abs : (int.nat_abs_pos (val_1_1_pos hf)).symm
+           ... = (reduced_order_key ⟨f, _⟩).snd.snd.snd : rfl
+           ... = (reduced_order_key ⟨g, _⟩).snd.snd.snd : by rw h
+           ... = (g 1 1).nat_abs : rfl
+           ... = g 1 1 : int.nat_abs_pos (val_1_1_pos hg) }
+end
+
+/-- An order of quadratic forms, such that reduced forms are minimal. -/
 instance : has_lt (QF d) :=
-⟨function.on_fun (<) reduced_order_key⟩
+⟨function.on_fun (prod.lex (<) (<)) reduced_order_key⟩
 
-lemma well_founded_reduced_order : well_founded ((<) : QF d → QF d → Prop) :=
-sorry
+/-- An embedding from the reduced_order, to show it is well-founded. -/
+def reduced_order_embedding {f : QF d} (hf : is_positive_definite f) :
+  order_embedding (subrel (<) (mul_action.orbit SL₂ℤ f)) ((<) : _ → lex ℕ (lex ℕ (lex (fin 3) ℕ)) → Prop) :=
+{ to_fun := λ f, reduced_order_key f.1,
+  inj := λ ⟨g, hg⟩ ⟨g', hg'⟩ h, by { congr, exact key_injective_on_pos_def (pos_def_of_mem_orbit hf hg) (pos_def_of_mem_orbit hf hg') h },
+  ord := λ _ _, iff.rfl }
+
+/-- The order on quadratic forms is well-founded on positive definite classes. -/
+def reduced_well_order {f : QF d} (hf : is_positive_definite f) :
+  is_well_order _ (subrel (<) (mul_action.orbit SL₂ℤ f)) :=
+@order_embedding.is_well_order _ _ _ _ (reduced_order_embedding hf)
+  (@prod.lex.is_well_order _ _ _ _ _
+    (@prod.lex.is_well_order _ _ _ _ _
+      (@prod.lex.is_well_order _ _ _ _ _ _)))
 
 /-- `swap_x_y` is a matrix whose action swaps the coefficient for `x²` and `y²` -/
 def swap_x_y : SL₂ℤ := ⟨![![0, -1], ![1, 0]], rfl⟩
 
 lemma swap_x_y_smul (f : QF d) :
-  (⇑(swap_x_y • f) : M₂ℤ) = ![![0, -1], ![1, 0]] ⬝ f ⬝ ![![0, 1], ![-1, 0]] :=
+  (matrix_action swap_x_y f : M₂ℤ) = ![![0, -1], ![1, 0]] ⬝ f ⬝ ![![0, 1], ![-1, 0]] :=
 sorry
 
-lemma swap_x_y_smul_0_0 (f : QF d) : (swap_x_y • f) 0 0 = f 1 1 :=
-by { simp [swap_x_y_smul], refl }
+lemma swap_x_y_smul_0_0 (f : QF d) : matrix_action swap_x_y f 0 0 = f 1 1 :=
+by { simp [swap_x_y_smul] }
 
-lemma swap_x_y_lt {f : QF d} (h : f 1 1 < f 0 0) : (swap_x_y • f) < f :=
-prod.lex.left _ _ _ (by { rw swap_x_y_smul_0_0 f, exact h })
+lemma swap_x_y_smul_1_0 (f : QF d) : (matrix_action swap_x_y f) 1 0 = - f 1 0 :=
+by { simp [swap_x_y_smul, QF_coe_fn_symmetric f 0 (fin.succ 0)] }
+
+lemma swap_x_y_lt {f : QF d} (hc : 0 < f 1 1) (h : f 1 1 < f 0 0) : (swap_x_y • f) < f :=
+prod.lex.left _ _ _ (by { convert (int.nat_abs_lt hc h), simp [swap_x_y_smul_0_0 f] })
+
+lemma swap_x_y_lt_of_eq_of_neg {f : QF d} (hac : f 0 0 = f 1 1) (hb : f 1 0 < 0) : (swap_x_y • f) < f :=
+(prod.lex_def _ _).mpr (or.inr ⟨
+  (by { simp [reduced_order_key, swap_x_y_smul_0_0, hac.symm] }),
+  (prod.lex_def _ _).mpr (or.inr ⟨
+    (by { simp [reduced_order_key, swap_x_y_smul_1_0] }),
+    prod.lex.left _ _ _ (by { simp [swap_x_y_smul_1_0, sign'_of_neg hb, sign'_of_pos (neg_pos.mpr hb)], exact dec_trivial }) ⟩ ) ⟩ )
 
 /-- `change_xy k` changes the coefficient for `xy` while keeping the coefficient for `x²` the same -/
 def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], sorry⟩
@@ -289,62 +412,97 @@ lemma change_xy_smul_0_0 (k : ℤ) (f : QF d) : (change_xy k • f) 0 0 = f 0 0 
 by { simp [change_xy_smul] }
 
 lemma change_xy_smul_1_0 (k : ℤ) (f : QF d) : (change_xy k • f) 1 0 = k * f 0 0 + f 1 0 :=
-by { simp [change_xy_smul], refl }
+by { simp [change_xy_smul] }
 
-lemma change_xy_lt {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) < abs (f 1 0)) : (change_xy k • f) < f :=
+lemma change_xy_lt_abs {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) < abs (f 1 0)) : (change_xy k • f) < f :=
 (prod.lex_def _ _).mpr (or.inr ⟨
-  change_xy_smul_0_0 k f,
-  prod.lex.left _ _ _ (by { rw change_xy_smul_1_0 k f, exact h }) ⟩ )
+  (by rw [reduced_order_key, reduced_order_key, change_xy_smul_0_0 k f]),
+  prod.lex.left _ _ _ (by { convert int.nat_abs_lt_of_abs_lt h, rw change_xy_smul_1_0 k f }) ⟩ )
 
-lemma int.le_div_mul (a b : ℤ) : a - b ≤ (a / b) * b := sorry
+lemma change_xy_lt_sign {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) = abs (f 1 0)) (h2 : sign' (k * f 0 0 + f 1 0) < sign' (f 1 0)) : (change_xy k • f) < f :=
+(prod.lex_def _ _).mpr (or.inr ⟨
+  (by rw [reduced_order_key, reduced_order_key, change_xy_smul_0_0 k f]),
+  (prod.lex_def _ _).mpr (or.inr ⟨
+    (by rw [reduced_order_key, reduced_order_key, change_xy_smul_1_0, int.nat_abs_eq, h]),
+    prod.lex.left _ _ _ (by { rw change_xy_smul_1_0 k f, exact h2 }) ⟩ ) ⟩ )
+
+/-- Together with `div_mul_le`, we have that `(a / b) * b ∈ ]a-b, a]` -/
+lemma int.lt_div_mul (a : ℤ) {b : ℤ} (hb : 0 < b) : a - b < (a / b) * b :=
+calc a - b < a - a % b : sub_lt_sub_of_le_of_lt (le_refl a) (int.mod_lt_of_pos _ hb)
+       ... = a - (a - b * (a / b)) : by rw int.mod_def
+       ... = a / b * b : by ring
+
+lemma a_le_c_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : f 0 0 ≤ f 1 1 :=
+le_of_not_gt (λ c_lt_a, min (swap_x_y • f) ⟨_, rfl⟩ (swap_x_y_lt (val_1_1_pos hf) c_lt_a))
+
+lemma b_le_a_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : abs (f 1 0) ≤ f 0 0 :=
+have a_pos : 0 < f 0 0 := val_0_0_pos hf,
+le_of_not_gt (λ a_lt_b, min (change_xy ((f 0 0 - f 1 0) / f 0 0) • f) ⟨_, rfl⟩ begin
+  refine change_xy_lt_abs (abs_lt.mpr (and.intro _ _)),
+  { apply lt_of_lt_of_le _ (add_le_add_right (le_of_lt (int.lt_div_mul _ a_pos)) _),
+    linarith },
+  { apply lt_of_le_of_lt (add_le_add_right (int.div_mul_le _ (ne_of_gt a_pos)) _),
+    linarith }
+end )
+
+lemma min_of_reduced {f : QF d} (hf : is_positive_definite f) (f_red : is_reduced f) :
+  ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬ g < f :=
+begin
+  cases f with f,
+  rintros ⟨g, hg⟩ ⟨N, hN⟩ g_lt_f,
+  have : matrix_action N f = g := congr_arg subtype.val hN,
+  have : g 0 0 = f 0 0 * N 0 0 ^ 2 + 2 * f 1 0 * N 0 0 * N 0 1 + f 1 1 * N 0 1 ^ 2,
+  { rw ← this, simp [coe_fn_mul_action, @coe_fn_symmetric _ _ _ f 0 (fin.succ 0)], ring },
+  sorry
+end
+
+#check mul_action.mem_orbit
 
 /-- In each orbit, there is a unique reduced quadratic form -/
-lemma unique_reduced_mem_orbit (M : QF d) (M_pos_def : is_positive_definite M) :
-  ∃! f, f ∈ mul_action.orbit SL₂ℤ M ∧ is_reduced f :=
+lemma unique_reduced_mem_orbit (f : QF d) (hf : is_positive_definite f) :
+  ∃! f_min, f_min ∈ mul_action.orbit SL₂ℤ f ∧ is_reduced f_min :=
 begin
-  obtain ⟨f, ⟨N, hf⟩, min⟩ := well_founded.has_min well_founded_reduced_order (mul_action.orbit SL₂ℤ M) ⟨M, mul_action.orbit_eq_iff.mp rfl⟩,
-  have f_pos_def : is_positive_definite f,
-  { rw ←hf, apply is_positive_definite_smul, exact M_pos_def },
-  use f,
-  use ⟨N, hf⟩,
-  have a_pos : f 0 0 > 0 := val_0_0_pos _ _,
-  { by_cases c_lt_a : f 1 1 < f 0 0,
-    { exfalso,
-      have : swap_x_y • f ∈ mul_action.orbit SL₂ℤ M :=
-      ⟨ swap_x_y * N, trans (_root_.mul_smul swap_x_y N M) (congr_arg _ hf) ⟩,
-      apply min (swap_x_y • f) this,
-      exact swap_x_y_lt c_lt_a },
-    have a_le_c : f 0 0 ≤ f 1 1 := le_of_not_gt c_lt_a,
+  obtain ⟨⟨f_min, ⟨M, hM⟩⟩, _, min⟩ := well_founded.has_min (reduced_well_order hf).wf set.univ (set.nonempty_of_mem (set.mem_univ ⟨f, (mul_action.mem_orbit_self _)⟩)),
+  have hf_min : is_positive_definite f_min,
+  { rw ←hM, apply is_positive_definite_smul, exact hf },
+  have min' : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f_min → ¬g < f_min,
+  { intros g hg, refine min ⟨g, _⟩ (set.mem_univ _), rw ← mul_action.orbit_eq_iff.mpr ⟨M, hM⟩, exact hg },
 
-    by_cases a_lt_b : f 0 0 < abs (f 1 0),
-    { exfalso,
-      have : change_xy ((f 0 0 - f 1 0) / f 0 0) • f ∈ mul_action.orbit SL₂ℤ M :=
-      ⟨ change_xy _ * N, trans (_root_.mul_smul (change_xy _) N M) (congr_arg _ hf) ⟩,
-      apply min (change_xy _ • f) this,
-      refine change_xy_lt (lt_of_le_of_lt (abs_le.mpr (and.intro _ _)) a_lt_b),
-      { apply le_trans _ (add_le_add_right (int.le_div_mul _ _) _),
-        apply le_of_lt,
-        apply neg_lt.mp,
-        apply lt_of_le_of_lt _ a_pos,
-        linarith },
-      { apply le_trans (add_le_add_right (int.div_mul_le _ (ne_of_gt a_pos)) _),
-        norm_num } },
-    have b_le_a : abs (f 1 0) ≤ f 0 0 := le_of_not_gt a_lt_b,
+  have a_pos : 0 < f_min 0 0 := val_0_0_pos hf_min,
+  have b_le_a : abs (f_min 1 0) ≤ f_min 0 0 := b_le_a_of_min hf_min min',
+  have a_le_c : f_min 0 0 ≤ f_min 1 1 := a_le_c_of_min hf_min min',
 
-    use b_le_a,
-    use le_of_not_gt c_lt_a,
-    by_cases b_pos : 0 ≤ f 1 0,
-    { intro,
-      assumption },
-    rintros (b_eq_a | a_eq_c),
-    { sorry },
-    sorry },
+  use f_min,
+  use ⟨M, hM⟩,
 
-  exact f_pos_def,
+  { use b_le_a,
+    use a_le_c,
+    rintros (abs_b_eq_a | a_eq_c); apply le_of_not_gt; intro b_neg,
+    { have b_eq_neg_a : f_min 1 0 = - f_min 0 0,
+      { rw [←abs_b_eq_a, abs_of_neg b_neg, neg_neg] },
+      have change_xy_b_eq : 2 * f_min 0 0 + f_min 1 0 = f_min 0 0,
+      { rw [b_eq_neg_a], ring },
+      apply min' (change_xy _ • f_min) ⟨_, rfl⟩,
+      apply change_xy_lt_sign; rw [change_xy_b_eq],
+      { rw [abs_b_eq_a, abs_of_pos a_pos] },
+      rw [sign'_of_pos a_pos, sign'_of_neg b_neg],
+      exact dec_trivial },
 
-  rintros g ⟨g_mem_orbit, g_is_reduced⟩,
-  have := min g g_mem_orbit,
-  sorry
+    apply min' (swap_x_y • f_min) ⟨_, rfl⟩,
+    exact swap_x_y_lt_of_eq_of_neg a_eq_c b_neg },
+
+  rintros g ⟨⟨N, hN⟩, g_red⟩,
+  have hg : is_positive_definite g,
+  { rw ←hN, apply is_positive_definite_smul, exact hf },
+  have := (reduced_well_order hf).trichotomous,
+  rcases this ⟨f_min, ⟨M, hM⟩⟩ ⟨g, ⟨N, hN⟩⟩ with f_lt_g | f_eq_g | f_gt_g,
+  { exfalso,
+    refine min_of_reduced hg g_red f_min _ f_lt_g,
+    use M * N⁻¹,
+    simp [← hM, ← hN, ← _root_.mul_smul] },
+  { exact congr_arg subtype.val f_eq_g.symm },
+  { exfalso,
+    apply min ⟨g, ⟨N, hN⟩⟩ (set.mem_univ _) f_gt_g },
 end
 
 end reduced
