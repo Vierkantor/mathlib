@@ -1,6 +1,6 @@
 import data.int.gcd
 import data.zsqrtd.basic
-import data.matrix.basic
+import data.matrix.notation
 import group_theory.group_action
 import group_theory.quotient_group
 import linear_algebra.special_linear_group
@@ -193,6 +193,8 @@ instance : has_scalar SL₂ℤ (QF d) :=
 
 @[simp] lemma coe_fn_smul (M : SL₂ℤ) (f : QF d) : ⇑(M • f) = matrix_action M f := rfl
 
+@[simp] lemma coe_fn_coe (f : QF d) : ⇑(f : quadratic_form (fin 2) ℤ) = f := rfl
+
 lemma QF_coe_fn_symmetric (f : QF d) (i j : fin 2) : f i j = f j i := coe_fn_symmetric f
 
 instance : mul_action SL₂ℤ (QF d) :=
@@ -202,7 +204,7 @@ instance : mul_action SL₂ℤ (QF d) :=
 -- TODO: better name!
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M 0 0 = 1 ∧ M 0 1 = m ∧ M 1 0 = 0 ∧ M 1 1 = 1 }
 
-@[simp] lemma fin.one : (1 : fin 2) = fin.succ 0 := rfl
+@[simp] lemma fin.one : (fin.succ 0 : fin 2) = 1 := rfl
 
 instance : is_submonoid Γ_infinity :=
 ⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, sorry ⟩⟩
@@ -243,27 +245,22 @@ end
 
 lemma special_linear_group.vec_mul_injective {A : SL₂ℤ} {v v' : fin 2 → ℤ} (h : vec_mul v A = vec_mul v' A) :
   v = v' :=
-calc v = vec_mul v ↑(A * A⁻¹) : by simp [-vec_mul_succ, vec_mul_one]
-   ... = vec_mul (vec_mul v A) ↑A⁻¹ : sorry
-   ... = vec_mul v' ↑(A * A⁻¹) : sorry
-   ... = v' : sorry
+calc v = vec_mul v ⇑(A * A⁻¹) : by rw [mul_right_inv, special_linear_group.one_apply, vec_mul_one]
+   ... = vec_mul (vec_mul v A) ⇑A⁻¹ : by rw [vec_mul_vec_mul, special_linear_group.mul_apply]
+   ... = vec_mul (vec_mul v' A) ⇑A⁻¹ : by rw h
+   ... = vec_mul v' ⇑(A * A⁻¹) : by rw [vec_mul_vec_mul, special_linear_group.mul_apply]
+   ... = v' : by rw [mul_right_inv, special_linear_group.one_apply, vec_mul_one]
 
 lemma is_positive_definite_smul {f : QF d} (M : SL₂ℤ) (h : is_positive_definite f) :
   is_positive_definite (M • f) :=
-λ x hx, begin
-  rw [smul_val, eval_action],
-  apply h,
-  intro hx',
-  apply hx,
-  apply special_linear_group.vec_mul_injective (trans hx' _),
-  simp
-end
+λ x hx, have hx' : vec_mul x ⇑M ≠ 0 :=
+  λ he, hx (special_linear_group.vec_mul_injective (trans he (vec_mul_zero M).symm)),
+by simpa [smul_val, eval_action] using h _ hx'
 
 lemma pos_def_of_mem_orbit {f g : QF d}
   (hf : is_positive_definite f) (hg : g ∈ mul_action.orbit SL₂ℤ f) :
   is_positive_definite g :=
 by { rcases hg with ⟨M, ⟨⟩⟩, exact is_positive_definite_smul M hf}
-
 
 lemma a_pos_of_mem_orbit_pos_def {f g : QF d}
   (hf : is_positive_definite f) (hg : g ∈ mul_action.orbit SL₂ℤ f) : g 0 0 > 0 :=
@@ -313,17 +310,17 @@ lemma int.nat_abs_of_neg {a : ℤ} (ha : a < 0) : (↑(a.nat_abs) : ℤ) = -a :=
 calc (↑(a.nat_abs) : ℤ) = -(a.sign * a.nat_abs) : by simp [int.sign_eq_neg_one_of_neg ha]
                     ... = -a : by rw int.sign_mul_nat_abs a
 
-lemma int.nat_abs_le {a b : ℤ} (ha : 0 < a) (h : a ≤ b) : a.nat_abs ≤ b.nat_abs :=
+lemma int.nat_abs_le_of_pos {a b : ℤ} (ha : 0 < a) (h : a ≤ b) : a.nat_abs ≤ b.nat_abs :=
 int.coe_nat_le.mp (by { convert h; apply int.nat_abs_pos; linarith })
 
-lemma int.nat_abs_lt {a b : ℤ} (ha : 0 < a) (h : a < b) : a.nat_abs < b.nat_abs :=
-int.coe_nat_lt.mp (by { convert h; apply int.nat_abs_pos; linarith })
+lemma int.nat_abs_lt_of_pos {a b : ℤ} (ha : 0 < a) (hb : 0 < b) : a < b ↔ a.nat_abs < b.nat_abs :=
+by { convert int.coe_nat_lt; apply eq.symm; apply int.nat_abs_pos; assumption }
 
 lemma int.nat_abs_eq : Π {a b : ℤ}, a.nat_abs = b.nat_abs ↔ abs a = abs b :=
 by simp [int.abs_eq_nat_abs]
 
-lemma int.nat_abs_lt_of_abs_lt {a b : ℤ} (h : abs a < abs b) : a.nat_abs < b.nat_abs :=
-int.coe_nat_lt.mp (by { convert h; sorry })
+lemma int.nat_abs_lt {a b : ℤ} (h : abs a < abs b) : a.nat_abs < b.nat_abs :=
+by simpa [int.abs_eq_nat_abs] using h
 
 lemma key_injective_on_pos_def {f g : QF d} (hf : is_positive_definite f) (hg : is_positive_definite g) :
   reduced_order_key f = reduced_order_key g → f = g :=
@@ -383,16 +380,16 @@ def swap_x_y : SL₂ℤ := ⟨![![0, -1], ![1, 0]], rfl⟩
 
 lemma swap_x_y_smul (f : QF d) :
   (matrix_action swap_x_y f : M₂ℤ) = ![![0, -1], ![1, 0]] ⬝ f ⬝ ![![0, 1], ![-1, 0]] :=
-sorry
+by { ext i j, fin_cases i; fin_cases j; refl }
 
 lemma swap_x_y_smul_0_0 (f : QF d) : matrix_action swap_x_y f 0 0 = f 1 1 :=
-by { simp [swap_x_y_smul] }
+by simp [swap_x_y_smul]
 
 lemma swap_x_y_smul_1_0 (f : QF d) : (matrix_action swap_x_y f) 1 0 = - f 1 0 :=
-by { simp [swap_x_y_smul, QF_coe_fn_symmetric f 0 (fin.succ 0)] }
+by { simp [swap_x_y_smul, QF_coe_fn_symmetric f 0 1], refl }
 
 lemma swap_x_y_lt {f : QF d} (hc : 0 < f 1 1) (h : f 1 1 < f 0 0) : (swap_x_y • f) < f :=
-prod.lex.left _ _ _ (by { convert (int.nat_abs_lt hc h), simp [swap_x_y_smul_0_0 f] })
+prod.lex.left _ _ _ (by { convert ((int.nat_abs_lt_of_pos hc (by linarith)).mp h), simp [swap_x_y_smul_0_0 f] })
 
 lemma swap_x_y_lt_of_eq_of_neg {f : QF d} (hac : f 0 0 = f 1 1) (hb : f 1 0 < 0) : (swap_x_y • f) < f :=
 (prod.lex_def _ _).mpr (or.inr ⟨
@@ -406,18 +403,18 @@ def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], sorry⟩
 
 lemma change_xy_smul (k : ℤ) (f : QF d) :
   (⇑(change_xy k • f) : M₂ℤ) = ![![1, 0], ![k, 1]] ⬝ f ⬝ ![![1, k], ![0, 1]] :=
-sorry
+by { ext i j, fin_cases i; fin_cases j; refl }
 
 lemma change_xy_smul_0_0 (k : ℤ) (f : QF d) : (change_xy k • f) 0 0 = f 0 0 :=
 by { simp [change_xy_smul] }
 
 lemma change_xy_smul_1_0 (k : ℤ) (f : QF d) : (change_xy k • f) 1 0 = k * f 0 0 + f 1 0 :=
-by { simp [change_xy_smul] }
+by { simp [change_xy_smul], refl }
 
 lemma change_xy_lt_abs {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) < abs (f 1 0)) : (change_xy k • f) < f :=
 (prod.lex_def _ _).mpr (or.inr ⟨
   (by rw [reduced_order_key, reduced_order_key, change_xy_smul_0_0 k f]),
-  prod.lex.left _ _ _ (by { convert int.nat_abs_lt_of_abs_lt h, rw change_xy_smul_1_0 k f }) ⟩ )
+  prod.lex.left _ _ _ (by { convert int.nat_abs_lt h, rw change_xy_smul_1_0 k f }) ⟩ )
 
 lemma change_xy_lt_sign {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) = abs (f 1 0)) (h2 : sign' (k * f 0 0 + f 1 0) < sign' (f 1 0)) : (change_xy k • f) < f :=
 (prod.lex_def _ _).mpr (or.inr ⟨
@@ -445,18 +442,80 @@ le_of_not_gt (λ a_lt_b, min (change_xy ((f 0 0 - f 1 0) / f 0 0) • f) ⟨_, r
     linarith }
 end )
 
+lemma int.ge_one_of_pos : ∀ {a : ℤ}, a > 0 → a ≥ 1
+| 0 ha := by linarith
+| (nat.succ n) ha := by linarith
+| -[1+ n ] ha := by linarith
+
+/-- Setting `x = 2 * m^2`, `y = 2 * n^2`, we have `sqrt (x * y) ≤ (x + y) / 2` -/
+lemma int.am_gm_inequality (m n : ℤ) : 2 * abs m * abs n ≤ m^2 + n^2 :=
+have pow_sub : 0 ≤ (m - n)^2 := pow_two_nonneg _,
+have pow_add : 0 ≤ (m + n)^2 := pow_two_nonneg _,
+begin
+  cases le_total 0 m with hm hm; cases le_total 0 n with hn hn;
+    rw [abs_of_nonneg hm] <|> rw [abs_of_nonpos hm];
+    rw [abs_of_nonneg hn] <|> rw [abs_of_nonpos hn],
+  { convert add_le_add_left pow_sub (2 * m * n) using 1; ring },
+  { convert sub_le_sub_right pow_add (2 * m * n) using 1; ring },
+  { convert sub_le_sub_right pow_add (2 * m * n) using 1; ring },
+  { convert add_le_add_left pow_sub (2 * m * n) using 1; ring },
+end
+
+lemma abs_squared (a : ℤ) : (abs a)^2 = a^2 := sorry
+
+lemma min_of_reduced_aux {a b c m n : ℤ} (hmn : abs m ≠ abs n) (ha : 0 ≤ a) (hba : abs b ≤ a) (hac : a ≤ c) :
+  a ≤ a * m^2 + 2 * b * m * n + c * n^2 :=
+have msq_nonneg : _ := pow_two_nonneg m,
+have nsq_nonneg : _ := pow_two_nonneg n,
+calc a = a * 1 : (mul_one _).symm
+   ... ≤ a * (m^2 + n^2 - 2 * abs m * abs n) :
+     mul_le_mul_of_nonneg_left (int.ge_one_of_pos begin
+       convert lt_of_le_of_ne (pow_two_nonneg (abs m - abs n)) (pow_ne_zero 2 _).symm using 1,
+       rw [← abs_squared m, ←abs_squared n],
+     end) ha
+   ... = a * (m^2 + n^2) - 2 * abs m * abs n * a : by ring
+   ... ≤ a * (m^2 + n^2) - 2 * abs m * abs n * abs b :
+     sub_le_sub_left (mul_le_mul_of_nonneg_left hba (mul_nonneg (mul_nonneg (by norm_num) (abs_nonneg _)) (abs_nonneg _))) _
+   ... = a * (m^2 + n^2) + - (2 * abs m * abs n * abs b) : sub_eq_add_neg _ _
+   ... ≤ a * (m^2 + n^2) + 2 * m * n * b :
+     begin
+       apply add_le_add_left,
+       cases le_total 0 m with hm hm; cases le_total 0 n with hn hn;
+        cases le_total 0 b with hb hb;
+        rw [abs_of_nonneg hm] <|> rw [abs_of_nonpos hm];
+        rw [abs_of_nonneg hn] <|> rw [abs_of_nonpos hn];
+        rw [abs_of_nonneg hb] <|> rw [abs_of_nonpos hb];
+        sorry
+     end
+   ... = a * m^2 + 2 * b * m * n + a * n^2 : by ring
+   ... ≤ a * m^2 + 2 * b * m * n + c * n^2 :
+     add_le_add_left (mul_le_mul_of_nonneg_right hac nsq_nonneg) _
+
 lemma min_of_reduced {f : QF d} (hf : is_positive_definite f) (f_red : is_reduced f) :
   ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬ g < f :=
 begin
   cases f with f,
-  rintros ⟨g, hg⟩ ⟨N, hN⟩ g_lt_f,
+  rcases f_red with ⟨b_lt_a, a_lt_c, strict⟩,
+  have fa_pos : 0 < f 0 0 := val_0_0_pos hf,
+  have fc_pos : 0 < f 1 1 := val_1_1_pos hf,
+
+  rintros ⟨g, _⟩ ⟨N, hN⟩ g_lt_f,
+  have ga_pos : 0 < g 0 0 := a_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
+  have gc_pos : 0 < g 1 1 := c_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
+
   have : matrix_action N f = g := congr_arg subtype.val hN,
   have : g 0 0 = f 0 0 * N 0 0 ^ 2 + 2 * f 1 0 * N 0 0 * N 0 1 + f 1 1 * N 0 1 ^ 2,
-  { rw ← this, simp [coe_fn_mul_action, @coe_fn_symmetric _ _ _ f 0 (fin.succ 0)], ring },
-  sorry
-end
+  { rw ← this, sorry },
 
-#check mul_action.mem_orbit
+  rcases (prod.lex_def _ _).mp g_lt_f with a_lt | ⟨a_eq, b_lt⟩,
+  { have a_lt := (int.nat_abs_lt_of_pos ga_pos fa_pos).mpr a_lt,
+    rw this at a_lt,
+    by_cases N 0 0 = 0,
+    { sorry },
+    have : N 0 0 ≥ 1 := sorry,
+    linarith },
+  { sorry },
+end
 
 /-- In each orbit, there is a unique reduced quadratic form -/
 lemma unique_reduced_mem_orbit (f : QF d) (hf : is_positive_definite f) :
