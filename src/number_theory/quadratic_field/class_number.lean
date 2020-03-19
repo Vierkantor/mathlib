@@ -130,7 +130,7 @@ mk (M ⬝ N ⬝ Mᵀ) (by simp [matrix.mul_assoc, transpose_coe_fn])
 
 local infixr ` · `:70 := matrix_action
 
-lemma coe_fn_mul_action (M : matrix n n α) (f : quadratic_form n α) :
+lemma coe_fn_matrix_action (M : matrix n n α) (f : quadratic_form n α) :
   ⇑(M · f) = M ⬝ f ⬝ Mᵀ
 := rfl
 
@@ -150,7 +150,7 @@ by simp [matrix_action]
 
 @[simp] lemma matrix_action_mul (M N : matrix n n α) (f : quadratic_form n α) :
   (M ⬝ N) · f = M · (N · f) :=
-by { ext, simp [coe_fn_mul_action, matrix.mul_assoc] }
+by { ext, simp [coe_fn_matrix_action, matrix.mul_assoc] }
 
 end matrix_action
 
@@ -271,7 +271,12 @@ lemma c_pos_of_mem_orbit_pos_def {f g : QF d}
 val_1_1_pos (pos_def_of_mem_orbit hf hg)
 
 def is_reduced (f : QF d) : Prop :=
-abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
+2 * abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((2 * abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
+
+lemma abs_b_le_a_of_reduced {f : QF d} (h : is_reduced f) : abs (f 1 0) ≤ f 0 0 :=
+calc abs (f 1 0) = 1 * abs (f 1 0) : (one_mul _).symm
+             ... ≤ 2 * abs (f 1 0) : mul_le_mul_of_nonneg_right (by linarith) (abs_nonneg _)
+             ... ≤ f 0 0 : h.1
 
 def sign' : ℤ → fin 3
 | (n+1:ℕ) := 0
@@ -423,79 +428,68 @@ lemma change_xy_lt_sign {f : QF d} {k : ℤ} (h : abs (k * f 0 0 + f 1 0) = abs 
     (by rw [reduced_order_key, reduced_order_key, change_xy_smul_1_0, int.nat_abs_eq, h]),
     prod.lex.left _ _ _ (by { rw change_xy_smul_1_0 k f, exact h2 }) ⟩ ) ⟩ )
 
-/-- Together with `div_mul_le`, we have that `(a / b) * b ∈ ]a-b, a]` -/
-lemma int.lt_div_mul (a : ℤ) {b : ℤ} (hb : 0 < b) : a - b < (a / b) * b :=
-calc a - b < a - a % b : sub_lt_sub_of_le_of_lt (le_refl a) (int.mod_lt_of_pos _ hb)
-       ... = a - (a - b * (a / b)) : by rw int.mod_def
-       ... = a / b * b : by ring
-
 lemma a_le_c_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : f 0 0 ≤ f 1 1 :=
 le_of_not_gt (λ c_lt_a, min (swap_x_y • f) ⟨_, rfl⟩ (swap_x_y_lt (val_1_1_pos hf) c_lt_a))
 
-lemma b_le_a_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : abs (f 1 0) ≤ f 0 0 :=
-have a_pos : 0 < f 0 0 := val_0_0_pos hf,
-le_of_not_gt (λ a_lt_b, min (change_xy ((f 0 0 - f 1 0) / f 0 0) • f) ⟨_, rfl⟩ begin
-  refine change_xy_lt_abs (abs_lt.mpr (and.intro _ _)),
-  { apply lt_of_lt_of_le _ (add_le_add_right (le_of_lt (int.lt_div_mul _ a_pos)) _),
-    linarith },
-  { apply lt_of_le_of_lt (add_le_add_right (int.div_mul_le _ (ne_of_gt a_pos)) _),
-    linarith }
-end )
+lemma b_le_a_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : 2 * abs (f 1 0) ≤ f 0 0 :=
+begin
+  have a_pos : 0 < f 0 0 := val_0_0_pos hf,
+  apply le_of_not_gt,
+  intro a_lt_b,
+  rcases @trichotomous _ (<) _ 0 (f 1 0) with b_pos | b_zero | b_neg,
+  { apply min (change_xy (-1) • f) ⟨_, rfl⟩,
+    refine change_xy_lt_abs (abs_lt.mpr (and.intro _ _));
+      rw [abs_of_pos b_pos] at *;
+      linarith },
+  { rw [←b_zero, abs_zero] at *, linarith },
+  { apply min (change_xy 1 • f) ⟨_, rfl⟩,
+    refine change_xy_lt_abs (abs_lt.mpr (and.intro _ _));
+      rw [abs_of_neg b_neg] at *;
+      linarith },
+end
 
 lemma int.ge_one_of_pos : ∀ {a : ℤ}, a > 0 → a ≥ 1
 | 0 ha := by linarith
 | (nat.succ n) ha := by linarith
 | -[1+ n ] ha := by linarith
 
-/-- Setting `x = 2 * m^2`, `y = 2 * n^2`, we have `sqrt (x * y) ≤ (x + y) / 2` -/
-lemma int.am_gm_inequality (m n : ℤ) : 2 * abs m * abs n ≤ m^2 + n^2 :=
-have pow_sub : 0 ≤ (m - n)^2 := pow_two_nonneg _,
-have pow_add : 0 ≤ (m + n)^2 := pow_two_nonneg _,
+lemma abs_squared (a : ℤ) : (abs a)^2 = a^2 :=
 begin
-  cases le_total 0 m with hm hm; cases le_total 0 n with hn hn;
-    rw [abs_of_nonneg hm] <|> rw [abs_of_nonpos hm];
-    rw [abs_of_nonneg hn] <|> rw [abs_of_nonpos hn],
-  { convert add_le_add_left pow_sub (2 * m * n) using 1; ring },
-  { convert sub_le_sub_right pow_add (2 * m * n) using 1; ring },
-  { convert sub_le_sub_right pow_add (2 * m * n) using 1; ring },
-  { convert add_le_add_left pow_sub (2 * m * n) using 1; ring },
+  by_cases a < 0,
+  { rw abs_of_neg h, ring },
+  { rw abs_of_nonneg (le_of_not_gt h) },
 end
-
-lemma abs_squared (a : ℤ) : (abs a)^2 = a^2 := sorry
 
 lemma min_of_reduced_aux {a b c m n : ℤ} (hmn : abs m ≠ abs n) (ha : 0 ≤ a) (hba : abs b ≤ a) (hac : a ≤ c) :
   a ≤ a * m^2 + 2 * b * m * n + c * n^2 :=
-have msq_nonneg : _ := pow_two_nonneg m,
-have nsq_nonneg : _ := pow_two_nonneg n,
+have abs_m_nonneg : _ := abs_nonneg m,
+have abs_n_nonneg : _ := abs_nonneg n,
 calc a = a * 1 : (mul_one _).symm
-   ... ≤ a * (m^2 + n^2 - 2 * abs m * abs n) :
-     mul_le_mul_of_nonneg_left (int.ge_one_of_pos begin
-       convert lt_of_le_of_ne (pow_two_nonneg (abs m - abs n)) (pow_ne_zero 2 _).symm using 1,
-       rw [← abs_squared m, ←abs_squared n],
-     end) ha
-   ... = a * (m^2 + n^2) - 2 * abs m * abs n * a : by ring
-   ... ≤ a * (m^2 + n^2) - 2 * abs m * abs n * abs b :
-     sub_le_sub_left (mul_le_mul_of_nonneg_left hba (mul_nonneg (mul_nonneg (by norm_num) (abs_nonneg _)) (abs_nonneg _))) _
-   ... = a * (m^2 + n^2) + - (2 * abs m * abs n * abs b) : sub_eq_add_neg _ _
-   ... ≤ a * (m^2 + n^2) + 2 * m * n * b :
-     begin
-       apply add_le_add_left,
-       cases le_total 0 m with hm hm; cases le_total 0 n with hn hn;
-        cases le_total 0 b with hb hb;
-        rw [abs_of_nonneg hm] <|> rw [abs_of_nonpos hm];
-        rw [abs_of_nonneg hn] <|> rw [abs_of_nonpos hn];
-        rw [abs_of_nonneg hb] <|> rw [abs_of_nonpos hb];
-        sorry
-     end
-   ... = a * m^2 + 2 * b * m * n + a * n^2 : by ring
+   ... ≤ a * (abs m - abs n)^2 :
+     mul_le_mul_of_nonneg_left (int.ge_one_of_pos (lt_of_le_of_ne (pow_two_nonneg _)
+       (ne.symm (mt pow_eq_zero (sub_ne_zero.mpr hmn))))) ha
+   ... = a * (abs m)^2 - 2 * abs m * abs n * a + (abs n)^2 * a : by ring
+   ... ≤ a * (abs m)^2 - 2 * abs m * abs n * abs b + (abs n)^2 * c :
+     add_le_add (sub_le_sub_left (mul_le_mul_of_nonneg_left hba (mul_nonneg (by linarith) abs_n_nonneg)) _)
+                (mul_le_mul_of_nonneg_left hac (pow_two_nonneg _))
+   ... = a * m^2 + -abs (2 * b * m * n) + c * n^2 : by { simp only [abs_mul, abs_squared], ring }
    ... ≤ a * m^2 + 2 * b * m * n + c * n^2 :
-     add_le_add_left (mul_le_mul_of_nonneg_right hac nsq_nonneg) _
+     add_le_add_right (add_le_add_left (neg_le.mp (neg_le_abs_self _)) _) _
+
+lemma min_of_reduced_aux2 {a b c m n : ℤ} (hba : 2 * abs b ≤ a) (hac : a ≤ c) (h : a = a * m^2 + 2 * b * m * n + c * n^2) :
+  m ≤ 1 :=
+le_of_not_gt (λ hm, ne_of_lt (calc
+  a = a * 1 : sorry
+... < a * m^2 : sorry
+... = a * m^2 + -abs (2 * b * m * n) + c * n^2 : sorry
+... ≤ a * m^2 + 2 * b * m * n + c * n^2 : sorry) h)
 
 lemma min_of_reduced {f : QF d} (hf : is_positive_definite f) (f_red : is_reduced f) :
   ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬ g < f :=
 begin
   cases f with f,
-  rcases f_red with ⟨b_lt_a, a_lt_c, strict⟩,
+  have b_le_a : 2 * abs (f 1 0) ≤ f 0 0 := f_red.1,
+  have a_le_c : f 0 0 ≤ f 1 1 := f_red.2.1,
   have fa_pos : 0 < f 0 0 := val_0_0_pos hf,
   have fc_pos : 0 < f 1 1 := val_1_1_pos hf,
 
@@ -503,18 +497,39 @@ begin
   have ga_pos : 0 < g 0 0 := a_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
   have gc_pos : 0 < g 1 1 := c_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
 
+  have m_ne_n : abs (N 0 0) ≠ abs (N 0 1),
+  { sorry },
+
   have : matrix_action N f = g := congr_arg subtype.val hN,
   have : g 0 0 = f 0 0 * N 0 0 ^ 2 + 2 * f 1 0 * N 0 0 * N 0 1 + f 1 1 * N 0 1 ^ 2,
-  { rw ← this, sorry },
+  { rw [← this, coe_fn_matrix_action, matrix.mul_val], sorry },
 
   rcases (prod.lex_def _ _).mp g_lt_f with a_lt | ⟨a_eq, b_lt⟩,
   { have a_lt := (int.nat_abs_lt_of_pos ga_pos fa_pos).mpr a_lt,
     rw this at a_lt,
-    by_cases N 0 0 = 0,
-    { sorry },
-    have : N 0 0 ≥ 1 := sorry,
-    linarith },
+    have := not_lt_of_ge (min_of_reduced_aux m_ne_n (le_of_lt fa_pos) (abs_b_le_a_of_reduced f_red) a_le_c),
+    contradiction },
+
+  have a_eq : g 0 0 = f 0 0,
+  { rw [← int.nat_abs_pos fa_pos, ← int.nat_abs_pos ga_pos],
+    exact congr_arg _ a_eq },
+  rw a_eq at this,
+
+  have : N 0 0 ≤ 1 := min_of_reduced_aux2 b_le_a a_le_c this,
+  rcases (prod.lex_def _ _).mp b_lt with abs_b_lt | ⟨abs_b_eq, sgn_b_lt⟩,
   { sorry },
+  sorry
+  /-
+  by_cases m_zero : N 0 0 = 0,
+  { apply not_le_of_gt _ a_le_c,
+    calc f 1 1 = f 1 1 * 1 : (mul_one _).symm
+           ... < f 1 1 * N 0 1 ^ 2 :
+             mul_lt_mul_of_pos_left (int.ge_one_of_pos _) fc_pos
+           ... = f 0 0 * N 0 0 ^ 2 + 2 * f 1 0 * N 0 0 * N 0 1 + f 1 1 * N 0 1 ^ 2 :
+             by simp [pow_two, m_zero]
+           ... = f 0 0 : this.symm
+    },
+  -/
 end
 
 /-- In each orbit, there is a unique reduced quadratic form -/
@@ -528,7 +543,7 @@ begin
   { intros g hg, refine min ⟨g, _⟩ (set.mem_univ _), rw ← mul_action.orbit_eq_iff.mpr ⟨M, hM⟩, exact hg },
 
   have a_pos : 0 < f_min 0 0 := val_0_0_pos hf_min,
-  have b_le_a : abs (f_min 1 0) ≤ f_min 0 0 := b_le_a_of_min hf_min min',
+  have b_le_a : 2 * abs (f_min 1 0) ≤ f_min 0 0 := b_le_a_of_min hf_min min',
   have a_le_c : f_min 0 0 ≤ f_min 1 1 := a_le_c_of_min hf_min min',
 
   use f_min,
@@ -537,14 +552,14 @@ begin
   { use b_le_a,
     use a_le_c,
     rintros (abs_b_eq_a | a_eq_c); apply le_of_not_gt; intro b_neg,
-    { have b_eq_neg_a : f_min 1 0 = - f_min 0 0,
-      { rw [←abs_b_eq_a, abs_of_neg b_neg, neg_neg] },
-      have change_xy_b_eq : 2 * f_min 0 0 + f_min 1 0 = f_min 0 0,
-      { rw [b_eq_neg_a], ring },
-      apply min' (change_xy _ • f_min) ⟨_, rfl⟩,
-      apply change_xy_lt_sign; rw [change_xy_b_eq],
-      { rw [abs_b_eq_a, abs_of_pos a_pos] },
-      rw [sign'_of_pos a_pos, sign'_of_neg b_neg],
+    { have a_eq_neg_2_b : f_min 0 0 = -2 * f_min 1 0,
+      { rw [← abs_b_eq_a, abs_of_neg b_neg], ring },
+      have change_xy_eq : 1 * f_min 0 0 + f_min 1 0 = - f_min 1 0,
+      { rw [a_eq_neg_2_b], ring },
+      apply min' (change_xy 1 • f_min) ⟨_, rfl⟩,
+      apply change_xy_lt_sign; rw [change_xy_eq],
+      { rw [abs_neg] },
+      rw [sign'_of_pos (neg_pos.mpr b_neg), sign'_of_neg b_neg],
       exact dec_trivial },
 
     apply min' (swap_x_y • f_min) ⟨_, rfl⟩,
