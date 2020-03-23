@@ -77,20 +77,20 @@ calc eval M x = univ.sum (λ i : n, (univ.sum (λ j : n, x j * M j i) * x i)) : 
 lemma eval_basis [semiring α] [decidable_eq n] (M : quadratic_form n α) (i : n) :
   eval M (λ j, if i = j then 1 else 0) = M i i :=
 calc eval M (λ j, if i = j then 1 else 0)
-    = sum univ (λ i' : n, sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) :
+    = finset.sum univ (λ i' : n, finset.sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) :
     by { simp [eval_val] }
-... = sum univ (λ i' : n, ite (i = i') (sum univ (λ j : n, (ite (i = j) (M i' j) 0))) 0) :
+... = finset.sum univ (λ i' : n, ite (i = i') (finset.sum univ (λ j : n, (ite (i = j) (M i' j) 0))) 0) :
     by { congr, ext i', split_ifs, { refl }, simp }
 ... = M i i : by simp
 
 lemma eq_of_eval_eq_aux [semiring α] [decidable_eq n] (M : quadratic_form n α) {i j : n} (h : j ≠ i) :
   eval M (λ j', if i = j' ∨ j = j' then 1 else 0) = M i i + 2 * M i j + M j j :=
 calc eval M (λ j', if i = j' ∨ j = j' then 1 else 0)
-    = sum univ (λ i' : n, sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0))
+    = finset.sum univ (λ i' : n, finset.sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0))
     : by simp [eval_val]
-... = sum univ (λ i' : n, ite (i = i' ∨ j = i') (sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
+... = finset.sum univ (λ i' : n, ite (i = i' ∨ j = i') (finset.sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
     : by { congr, ext i', split_ifs, { refl }, simp }
-... = sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
+... = finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
     : by { erw [sum_ite _ _ (λ x, x), filter_or, sum_union]; simp [filter_eq, h] }
 ... = M i i + M i j + M j i + M j j
     : by { erw [sum_ite _ _ (λ x, x), sum_ite _ _ (λ x, x), filter_or, sum_union, sum_union]; simp [filter_eq, h] }
@@ -204,10 +204,43 @@ instance : mul_action SL₂ℤ (QF d) :=
 ⟨ λ f, subtype.ext.mpr (matrix_action_identity f),
   λ M N f, subtype.ext.mpr (matrix_action_mul M N f) ⟩
 
+@[ext]
+lemma QF.ext {f g : QF d} (h : ∀ i j, f i j = g i j) : f = g :=
+begin
+  cases f,
+  cases g,
+  congr,
+  ext,
+  apply h
+end
+
 -- TODO: better name!
 def Γ_infinity : set SL₂ℤ := { M | ∃ m, M 0 0 = 1 ∧ M 0 1 = m ∧ M 1 0 = 0 ∧ M 1 1 = 1 }
 
 @[simp] lemma fin.one : (fin.succ 0 : fin 2) = 1 := rfl
+@[simp] lemma fin.default_one : (default (fin 1)) = 0 := rfl
+
+@[simp] lemma smul_val_0_0 (M : SL₂ℤ) (f : QF d) :
+  (M • f) 0 0 = f 0 0 * (M 0 0)^2 + 2 * f 1 0 * M 0 0 * M 0 1 + f 1 1 * (M 0 1)^2 :=
+calc (M • f) 0 0 = (M ⬝ f ⬝ Mᵀ) 0 0 : rfl
+             ... = (M 0 0 * f 0 0 + M 0 1 * f 1 0) * M 0 0 + (M 0 0 * f 1 0 + M 0 1 * f 1 1) * M 0 1 :
+  by simp [mul_val, QF_coe_fn_symmetric f 0 1]
+             ... = f 0 0 * (M 0 0)^2 + 2 * f 1 0 * M 0 0 * M 0 1 + f 1 1 * (M 0 1)^2 :
+  by ring
+
+@[simp] lemma smul_val_1_0 (M : SL₂ℤ) (f : QF d) :
+  (M • f) 1 0 = (M 1 0 * f 0 0 + M 1 1 * f 1 0) * M 0 0 + (M 1 0 * f 1 0 + M 1 1 * f 1 1) * M 0 1 :=
+calc (M • f) 1 0 = (M ⬝ f ⬝ Mᵀ) 1 0 : rfl
+             ... = (M 1 0 * f 0 0 + M 1 1 * f 1 0) * M 0 0 + (M 1 0 * f 1 0 + M 1 1 * f 1 1) * M 0 1 :
+  by simp [mul_val, QF_coe_fn_symmetric f 0 1]
+
+@[simp] lemma smul_val_1_1 (M : SL₂ℤ) (f : QF d) :
+  (M • f) 1 1 = f 0 0 * (M 1 0)^2 + 2 * f 1 0 * M 1 0 * M 1 1 + f 1 1 * (M 1 1)^2 :=
+calc (M • f) 1 1 = (M ⬝ f ⬝ Mᵀ) 1 1 : rfl
+             ... = (M 1 0 * f 0 0 + M 1 1 * f 1 0) * M 1 0 + (M 1 0 * f 1 0 + M 1 1 * f 1 1) * M 1 1 :
+  by simp [mul_val, QF_coe_fn_symmetric f 0 1]
+             ... = f 0 0 * (M 1 0)^2 + 2 * f 1 0 * M 1 0 * M 1 1 + f 1 1 * (M 1 1)^2 :
+  by ring
 
 instance : is_submonoid Γ_infinity :=
 ⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, sorry ⟩⟩
@@ -274,13 +307,14 @@ lemma c_pos_of_mem_orbit_pos_def {f g : QF d}
 val_1_1_pos (pos_def_of_mem_orbit hf hg)
 
 def is_reduced (f : QF d) : Prop :=
-2 * abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((2 * abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → f 1 0 ≥ 0)
+2 * abs (f 1 0) ≤ f 0 0 ∧ f 0 0 ≤ f 1 1 ∧ ((2 * abs (f 1 0) = f 0 0 ∨ f 0 0 = f 1 1) → 0 ≤ f 1 0)
 
 lemma abs_b_le_a_of_reduced {f : QF d} (h : is_reduced f) : abs (f 1 0) ≤ f 0 0 :=
 calc abs (f 1 0) = 1 * abs (f 1 0) : (one_mul _).symm
              ... ≤ 2 * abs (f 1 0) : mul_le_mul_of_nonneg_right (by linarith) (abs_nonneg _)
              ... ≤ f 0 0 : h.1
 
+/-- Map the sign of an int to `fin 3` to order them with positive as the least, then zero, then negative. -/
 def sign' : ℤ → fin 3
 | (n+1:ℕ) := 0
 | 0       := 1
@@ -391,21 +425,36 @@ def reduced_well_order {f : QF d} (hf : is_positive_definite f) :
 
 lemma reduced_lt_iff_of_pos_def {f g : QF d} (hf : is_positive_definite f) (hg : is_positive_definite g) :
   f < g ↔ f 0 0 < g 0 0 ∨
-    (f 0 0 = g 0 0 ∧ ((f 1 0).nat_abs < (g 1 0).nat_abs ∨
-      ((f 1 0).nat_abs = (g 1 0).nat_abs ∧ (sign' (f 1 0) < sign' (g 1 0) ∨
+    (f 0 0 = g 0 0 ∧ (abs (f 1 0) < abs (g 1 0) ∨
+      (abs (f 1 0) = abs (g 1 0) ∧ (sign' (f 1 0) < sign' (g 1 0) ∨
         (sign' (f 1 0) = sign' (g 1 0) ∧ f 1 1 < g 1 1))))) :=
  begin
   refine iff.trans (prod.lex_def _ _) (or_congr _ (and_congr _ _)),
   { exact iff.trans int.coe_nat_lt.symm (by rw [key_fst_of_pos_def hf, key_fst_of_pos_def hg]) },
   { exact (iff.trans (function.injective.eq_iff @int.coe_nat_inj).symm (by rw [key_fst_of_pos_def hf, key_fst_of_pos_def hg]))},
-  refine iff.trans (prod.lex_def _ _) (or_congr (iff.refl _) (and_congr (iff.refl _) _)),
+  refine iff.trans (prod.lex_def _ _) (or_congr int.nat_abs_lt.symm (and_congr int.nat_abs_eq _)),
   refine iff.trans (prod.lex_def _ _) (or_congr (iff.refl _) (and_congr (iff.refl _) _)),
   apply iff.trans int.coe_nat_lt.symm,
   rw [key_snd_snd_snd_of_pos_def hf, key_snd_snd_snd_of_pos_def hg],
 end
 
+lemma a_le_of_reduced_lt_of_pos_def {f g : QF d} (hf : is_positive_definite f) (hg : is_positive_definite g) (h : f < g):
+  f 0 0 ≤ g 0 0 :=
+begin
+  rcases (reduced_lt_iff_of_pos_def hf hg).mp h with ha | ⟨ha, _⟩,
+  { exact le_of_lt ha },
+  { exact le_of_eq ha }
+end
+
+lemma not_lt_of_a_ge {f g : QF d} (hf : is_positive_definite f) (hg : is_positive_definite g) (ha : f 0 0 < g 0 0) :
+  ¬ g < f :=
+λ h, not_lt_of_ge (a_le_of_reduced_lt_of_pos_def hg hf h) ha
+
 /-- `swap_x_y` is a matrix whose action swaps the coefficient for `x²` and `y²` -/
 def swap_x_y : SL₂ℤ := ⟨![![0, -1], ![1, 0]], rfl⟩
+
+@[simp]
+lemma coe_fn_swap : ⇑(swap_x_y) = ![![0, -1], ![1, 0]] := rfl
 
 lemma swap_x_y_smul (f : QF d) :
   (matrix_action swap_x_y f : M₂ℤ) = ![![0, -1], ![1, 0]] ⬝ f ⬝ ![![0, 1], ![-1, 0]] :=
@@ -460,7 +509,6 @@ lemma int.ge_one_of_pos : ∀ {a : ℤ}, a > 0 → a ≥ 1
 | (nat.succ n) ha := by linarith
 | -[1+ n ] ha := by linarith
 
-
 lemma a_le_c_of_min {f : QF d} (hf : is_positive_definite f) (min : ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬g < f) : f 0 0 ≤ f 1 1 :=
 le_of_not_gt (λ c_lt_a, min (swap_x_y • f) ⟨_, rfl⟩ (swap_x_y_lt (val_1_1_pos hf) c_lt_a))
 
@@ -481,7 +529,7 @@ begin
       linarith },
 end
 
-lemma abs_squared (a : ℤ) : (abs a)^2 = a^2 :=
+lemma abs_pow_two (a : ℤ) : (abs a)^2 = a^2 :=
 begin
   by_cases a < 0,
   { rw abs_of_neg h, ring },
@@ -496,15 +544,46 @@ calc a * ((abs m - abs n)^2 + abs m * abs n) = a * (abs m)^2 - abs m * abs n * a
    ... ≤ a * (abs m)^2 - abs m * abs n * (2 * abs b) + (abs n)^2 * c :
     add_le_add (sub_le_sub_left (mul_le_mul_of_nonneg_left hba (mul_nonneg (by linarith) abs_n_nonneg)) _)
       (mul_le_mul_of_nonneg_left hac (pow_two_nonneg _))
-   ... = a * m^2 + -abs (2 * b * m * n) + c * n^2 : by { simp only [abs_mul, abs_squared], ring }
+   ... = a * m^2 + -abs (2 * b * m * n) + c * n^2 : by { simp only [abs_mul, abs_pow_two], ring }
    ... ≤ a * m^2 + 2 * b * m * n + c * n^2 :
     add_le_add_right (add_le_add_left (neg_le.mp (neg_le_abs_self _)) _) _
+
+/-
+lemma min_of_reduced_aux_aux' {a b c m n : ℤ} (hba : 2 * abs b ≤ a) (hac : a ≤ c) :
+  a * m^2 + 2 * b * m * n + c * n^2 ≤ c * ((abs m + abs n)^2 - abs m * abs n) :=
+have abs_m_nonneg : _ := abs_nonneg m,
+have abs_n_nonneg : _ := abs_nonneg n,
+calc a * m^2 + 2 * b * m * n + c * n^2 ≤ a * m^2 + abs (2 * b * m * n) + c * n^2 : add_le_add_right (add_le_add_left (le_abs_self _) _) _
+... = a * (abs m)^2 + abs m * abs n * (2 * abs b) + (abs n)^2 * c : by { simp only [abs_mul, abs_pow_two, abs_of_nonneg (show (0 : ℤ) ≤ 2, by norm_num)], ring }
+... ≤ c * (abs m)^2 + abs m * abs n * c + (abs n)^2 * c : add_le_add_right (add_le_add
+  (mul_le_mul_of_nonneg_right hac (pow_two_nonneg _))
+  (mul_le_mul_of_nonneg_left (le_trans hba hac) (mul_nonneg (by linarith) abs_n_nonneg))) _
+... = c * ((abs m + abs n)^2 - abs m * abs n) : by ring
+-/
 
 lemma abs_pos_of_nonzero {a : ℤ} (h : a ≠ 0) : 0 < abs a :=
 lt_of_le_of_ne (abs_nonneg a) (λ h', h (abs_eq_zero.mp h'.symm))
 
-lemma pow_two_pos {a : ℤ} (h : 0 < a) : 0 < a^2 :=
-lt_of_le_of_ne (pow_two_nonneg a) (ne.symm (mt pow_eq_zero (ne_of_lt h).symm))
+lemma abs_b_le_multiple_a {a b k : ℤ} (h : 2 * abs b ≤ a) : abs b ≤ abs (k * a + b) :=
+begin
+  have : 0 ≤ abs b := abs_nonneg b,
+  rcases @trichotomous _ (<) _ 0 k with k_pos | k_zero | k_neg,
+  { refine le_max_iff.mpr (or.inl _),
+    calc abs b = 1 * (2 * abs b) + - abs b : by ring
+          ... ≤ 1 * (2 * abs b) + b : add_le_add_left (neg_le.mp (neg_le_abs_self _)) _
+          ... ≤ k * a + b : add_le_add_right (mul_le_mul (int.ge_one_of_pos k_pos) h (by linarith) (le_of_lt k_pos)) _ },
+    { simp [← k_zero] },
+  { refine le_max_iff.mpr (or.inr _),
+    have k_pos : 0 < -k := by linarith,
+    calc abs b = 1 * (2 * abs b) + - abs b : by ring
+          ... ≤ 1 * (2 * abs b) + - b : add_le_add_left (neg_le_neg (le_abs_self _)) _
+          ... ≤ (-k) * a + - b :
+          add_le_add_right (mul_le_mul (int.ge_one_of_pos k_pos) h (by linarith) (le_of_lt k_pos)) _
+          ... = -(k * a + b) : by ring }
+end
+
+lemma pow_two_pos {a : ℤ} (h : a ≠ 0) : 0 < a^2 :=
+lt_of_le_of_ne (pow_two_nonneg a) (ne.symm (mt pow_eq_zero h))
 
 lemma min_of_reduced_aux {a b c m n : ℤ} (hmn : ¬ (m = 0 ∧ n = 0)) (hba : 2 * abs b ≤ a) (hac : a ≤ c) :
   a ≤ a * m^2 + 2 * b * m * n + c * n^2 :=
@@ -515,139 +594,189 @@ begin
   by_cases hm : m = 0; by_cases hn : n = 0;
     try {rw hm}; try {rw hn}; try {rw abs_zero},
   { tauto },
-  { simpa using pow_two_pos (abs_pos_of_nonzero hn) },
-  { simpa using pow_two_pos (abs_pos_of_nonzero hm) },
+  { simpa using pow_two_pos (mt abs_eq_zero.mp hn) },
+  { simpa using pow_two_pos (mt abs_eq_zero.mp hm) },
   { apply add_pos_of_nonneg_of_pos (pow_two_nonneg _),
     apply mul_pos (abs_pos_of_nonzero hm) (abs_pos_of_nonzero hn) }
 end,
 le_trans (by simpa using (mul_le_mul_of_nonneg_left this ha)) (min_of_reduced_aux_aux hba hac)
 
-lemma change_xy_not_lt_of_reduced {f : QF d} (hpd : is_positive_definite f) (hr : is_reduced f) (k : ℤ) :
-  ¬ change_xy k • f < f :=
+lemma not_lt_of_n_eq_zero {f : QF d} (hpd : is_positive_definite f) (hr : is_reduced f) {M : SL₂ℤ} (hn : M 0 1 = 0) :
+  ¬ M • f < f :=
 begin
-  intro h,
-  rcases (reduced_lt_iff_of_pos_def (is_positive_definite_smul _ hpd) hpd).mp h with
+  intros hlt,
+  have ga_eq : f 0 0 * (M 0 0)^2 = (M • f) 0 0,
+  { rw [smul_val_0_0, hn], simp [pow_two] },
+
+  have hmp : M 0 0 * M 1 1 = 1,
+  { apply trans _ M.det_coe_fun,
+    simp [det_2x2, hn] },
+
+  have m_ne_zero : M 0 0 ≠ 0,
+  { intro hm,
+    apply zero_ne_one (trans _ hmp),
+    simp [hm] },
+  have p_ne_zero : M 1 1 ≠ 0,
+  { intro hp,
+    apply zero_ne_one (trans _ hmp),
+    simp [hp] },
+
+  have hm : M 0 0 = 1 ∨ M 0 0 = -1,
+  { cases int.units_eq_one_or ⟨M 0 0, M 1 1, hmp, trans (mul_comm _ _) hmp⟩,
+    { exact or.inl (congr_arg units.val h) },
+    { exact or.inr (congr_arg units.val h) } },
+  have hp : M 1 1 = 1 ∨ M 1 1 = -1,
+  { cases int.units_eq_one_or ⟨M 1 1, M 0 0, trans (mul_comm _ _) hmp, hmp⟩,
+    { exact or.inl (congr_arg units.val h) },
+    { exact or.inr (congr_arg units.val h) } },
+
+  have msq_eq_1 : (M 0 0)^2 = 1, { cases hm; rw hm; norm_num },
+  have abs_m_eq_1 : abs (M 0 0) = 1, { cases hm; rw hm; norm_num },
+  have abs_p_eq_1 : abs (M 1 1) = 1, { cases hp; rw hp; norm_num },
+
+  rcases (reduced_lt_iff_of_pos_def (is_positive_definite_smul _ hpd) hpd).mp hlt with
     ha | ⟨ha, habs | ⟨habs, hsgn | ⟨hsgn, hc⟩⟩⟩,
   { apply ne_of_lt ha,
-    exact change_xy_smul_0_0 k f },
+    rw [←ga_eq, msq_eq_1, mul_one] },
   { refine not_lt_of_ge _ habs,
-    rw [change_xy_smul_1_0],
-    apply int.nat_abs_le.mp,
-    have : 0 ≤ abs (f 1 0) := abs_nonneg _,
-    rcases @trichotomous _ (<) _ 0 k with k_pos | k_zero | k_neg,
-    { refine le_max_iff.mpr (or.inl _),
-      calc abs (f 1 0)
-            = 1 * (2 * abs (f 1 0)) + - abs (f 1 0) : by ring
-        ... ≤ 1 * (2 * abs (f 1 0)) + f 1 0 : add_le_add_left (neg_le.mp (neg_le_abs_self _)) _
-        ... ≤ k * f 0 0 + f 1 0 :
-          add_le_add_right (mul_le_mul (int.ge_one_of_pos k_pos) hr.1 (by linarith) (le_of_lt k_pos)) _ },
-    { simp [← k_zero] },
-    { refine le_max_iff.mpr (or.inr _),
-      have k_pos : 0 < -k := by linarith,
-      calc abs (f 1 0)
-            = 1 * (2 * abs (f 1 0)) + - abs (f 1 0) : by ring
-        ... ≤ 1 * (2 * abs (f 1 0)) + - f 1 0 : add_le_add_left (neg_le_neg (le_abs_self _)) _
-        ... ≤ (-k) * f 0 0 + - f 1 0 :
-          add_le_add_right (mul_le_mul (int.ge_one_of_pos k_pos) hr.1 (by linarith) (le_of_lt k_pos)) _
-        ... = -(k * f 0 0 + f 1 0) : by ring } },
-  { rw [change_xy_smul_1_0] at *,
-    have habs : abs (k * f 0 0 + f 1 0) = abs (f 1 0) := int.nat_abs_eq.mp habs,
-    by_cases k = 0,
+    rw [smul_val_1_0, hn, mul_zero, add_zero, abs_mul, abs_m_eq_1, mul_one],
+    cases int.units_eq_one_or ⟨M 1 1, M 0 0, trans (by simp [det_2x2, hn, mul_comm]) M.det_coe_fun, trans (by simp [det_2x2, hn]) M.det_coe_fun⟩,
+    { have h : M 1 1 = 1 := congr_arg units.val h,
+      convert abs_b_le_multiple_a hr.1,
+      simp [h] },
+    { have h : M 1 1 = -1 := congr_arg units.val h,
+      rw [←abs_neg (f 1 0), h, neg_one_mul],
+      refine abs_b_le_multiple_a _,
+      rw [abs_neg],
+      exact hr.1 } },
+  { rw [smul_val_1_0, hn, mul_zero, add_zero] at *,
+    by_cases (M 1 0) = 0,
     { apply lt_irrefl (sign' (f 1 0)),
       convert hsgn,
-      simp [h] },
+      calc f 1 0 = M 1 1 * f 1 0 * M 0 0 : by rw [mul_comm (M 1 1) (f 1 0), mul_assoc, mul_comm (M 1 1) (M 0 0), hmp, mul_one]
+             ... = _ : by simp [h, hn] },
     have : 2 * abs (f 1 0) = f 0 0,
     { apply le_antisymm hr.1,
       calc f 0 0 ≤ abs (f 0 0) : le_abs_self _
              ... = 1 * abs (f 0 0) : (one_mul _).symm
-             ... ≤ abs (-k) * abs (f 0 0) :
+             ... ≤ abs (- M 1 0) * abs (f 0 0) :
         mul_le_mul_of_nonneg_right (int.ge_one_of_pos (abs_pos_of_ne_zero (neg_ne_zero.mpr h))) (abs_nonneg _)
-             ... = abs (-k * f 0 0) - abs (f 1 0) + abs (f 1 0) : by { rw abs_mul, ring }
-             ... ≤ abs (-k * f 0 0 - f 1 0) + abs (f 1 0) : add_le_add_right (abs_sub_abs_le_abs_sub _ _) _
-             ... = abs (-(k * f 0 0 + f 1 0)) + abs (f 1 0) : by { congr, ring }
+             ... = abs (- M 1 0 * f 0 0) - abs (M 1 1 * f 1 0) + abs (f 1 0) : by { rw [abs_mul, abs_mul, abs_p_eq_1], ring }
+             ... ≤ abs (- M 1 0 * f 0 0 - M 1 1 * f 1 0) + abs (f 1 0) : add_le_add_right (abs_sub_abs_le_abs_sub _ _) _
+             ... = abs (-(M 1 0 * f 0 0 + M 1 1 * f 1 0)) + abs (f 1 0) : by { congr, ring }
+             ... = abs (-((M 1 0 * f 0 0 + M 1 1 * f 1 0) * M 0 0)) + abs (f 1 0) : by rw [abs_neg, abs_neg, abs_mul, abs_m_eq_1, mul_one]
              ... = abs (f 1 0) + abs (f 1 0) : by rw [abs_neg, habs]
              ... = 2 * abs (f 1 0) : (two_mul _).symm },
     have := hr.2.2 (or.inl this),
     by_cases 0 = f 1 0,
     { apply ne_of_lt hsgn,
-      rw [← h, abs_zero, add_zero] at habs,
-      rw [← h, add_zero, sign', abs_eq_zero.mp habs, sign'] },
+      rw [← h, mul_zero, abs_zero, add_zero] at habs,
+      rw [← h, mul_zero, add_zero, sign', abs_eq_zero.mp habs, sign'] },
     rw [sign'_of_pos (lt_of_le_of_ne this h)] at hsgn,
     cases hsgn },
-  { rw [change_xy_smul_1_1] at *,
+  { rw [smul_val_1_1] at *,
     refine not_lt_of_ge _ hc,
-    by_cases k = 0,
-    { simp [h, pow_two] },
-    have abs_k_pos : 0 < abs k := lt_of_le_of_ne (abs_nonneg k) (ne.symm (mt abs_eq_zero.mp h)),
-    have : 0 ≤ k^2 * f 0 0 + 2 * k * f 1 0 :=
-    calc 0 ≤ abs k * (f 0 0 - 2 * abs (f 1 0)) :
-         mul_nonneg (abs_nonneg k) (sub_nonneg.mpr hr.1)
-       ... = abs k * (1 * f 0 0 - 2 * abs (f 1 0)) : by ring
-       ... ≤ abs k * (abs k * f 0 0 - 2 * abs (f 1 0)) :
-         mul_le_mul_of_nonneg_left (sub_le_sub_right
-           (mul_le_mul_of_nonneg_right
-             (int.ge_one_of_pos abs_k_pos)
-             (le_of_lt (val_0_0_pos hpd))) _) (abs_nonneg k)
-       ... ≤ (abs k)^2 * f 0 0 - 2 * abs k * abs (f 1 0) : by ring
-       ... = k^2 * f 0 0 + - abs (2 * k * f 1 0) :
-         by rw [abs_squared _, sub_eq_add_neg, abs_mul, abs_mul, abs_of_nonneg (show (0 : ℤ) ≤ 2, by norm_num)]
-       ... ≤ k^2 * f 0 0 + 2 * k * f 1 0 : add_le_add_left (neg_le.mp (neg_le_abs_self _)) _,
-    calc f 1 1 = 0 + f 1 1 : (zero_add _).symm
-           ... ≤ k^2 * f 0 0 + 2 * k * f 1 0 + f 1 1 : add_le_add_right this _ }
+    by_cases M 1 0 = 0,
+    { cases hp; simp [h, hp, pow_two] },
+    have psq_eq_1 : (M 1 1)^2 = 1, { cases hp; simp [hp, pow_two] },
+    rw [psq_eq_1, mul_one] at *,
+    apply le_add_of_nonneg_left' _,
+    have abs_k_pos : 0 < abs (M 1 0) := lt_of_le_of_ne (abs_nonneg (M 1 0)) (ne.symm (mt abs_eq_zero.mp h)),
+    calc 0 ≤ abs (M 1 0) * (f 0 0 - 2 * abs (f 1 0)) :
+      mul_nonneg (abs_nonneg (M 1 0)) (sub_nonneg.mpr hr.1)
+       ... = abs (M 1 0) * (1 * f 0 0 - 2 * abs (f 1 0)) : by ring
+       ... ≤ abs (M 1 0) * (abs (M 1 0) * f 0 0 - 2 * abs (f 1 0)) :
+      mul_le_mul_of_nonneg_left (sub_le_sub_right
+        (mul_le_mul_of_nonneg_right
+        (int.ge_one_of_pos abs_k_pos)
+        (le_of_lt (val_0_0_pos hpd))) _) (abs_nonneg (M 1 0))
+       ... = f 0 0 * (abs (M 1 0))^2 - 2 * abs (f 1 0) * abs (M 1 0) : by ring
+       ... = f 0 0 * (M 1 0)^2 + - abs (2 * f 1 0 * M 1 0 * M 1 1) :
+      by rw [abs_pow_two _, sub_eq_add_neg, abs_mul, abs_mul, abs_mul, abs_p_eq_1, mul_one, abs_of_nonneg (show (0 : ℤ) ≤ 2, by norm_num)]
+       ... ≤ f 0 0 * (M 1 0)^2 + 2 * f 1 0 * M 1 0 * M 1 1 : add_le_add_left (neg_le.mp (neg_le_abs_self _)) _
+    }
+end
+
+lemma not_lt_of_m_eq_zero {f : QF d} (hpd : is_positive_definite f) (hr : is_reduced f) {M : SL₂ℤ} :
+  M 0 0 = 0 → ¬ (M • f) < f :=
+begin
+  intros hm hlt,
+  have ga_eq : f 1 1 * (M 0 1)^2 = (M • f) 0 0 ,
+  { rw [smul_val_0_0, hm], simp [pow_two] },
+
+  have hn : M 0 1 ≠ 0,
+  { intro hn,
+    apply zero_ne_one (trans _ M.det_coe_fun),
+    simp [det_2x2, hm, hn] },
+
+  have ho : M 1 0 ≠ 0,
+  { intro ho,
+    apply zero_ne_one (trans _ M.det_coe_fun),
+    simp [det_2x2, hm, ho] },
+
+  have a_eq_c : f 0 0 = f 1 1 := le_antisymm hr.2.1 (calc
+  f 1 1 = f 1 1 * 1 : (mul_one _).symm
+    ... ≤ f 1 1 * (M 0 1)^2 : mul_le_mul_of_nonneg_left (int.ge_one_of_pos (pow_two_pos hn)) (le_of_lt (val_1_1_pos hpd))
+    ... = (M • f) 0 0 : ga_eq
+    ... ≤ f 0 0 : a_le_of_reduced_lt_of_pos_def (is_positive_definite_smul M hpd) hpd hlt),
+
+  have b_nonneg := hr.2.2 (or.inr a_eq_c),
+
+  have nsq_eq_1 : (M 0 1)^2 = 1,
+  { apply (domain.mul_left_inj (ne_of_gt (val_1_1_pos hpd))).mp,
+    apply eq.symm,
+    apply le_antisymm (mul_le_mul_of_nonneg_left (int.ge_one_of_pos (pow_two_pos hn)) (le_of_lt (val_1_1_pos hpd))),
+    calc f 1 1 * M 0 1^2 = (M • f) 0 0 : ga_eq
+    ... ≤ f 0 0 : a_le_of_reduced_lt_of_pos_def (is_positive_definite_smul M hpd) hpd hlt
+    ... ≤ f 1 1 : hr.2.1
+    ... = f 1 1 * 1 : (mul_one _).symm },
+  have abs_n_eq_1 : abs (M 0 1) = 1,
+  { cases int.units_eq_one_or ⟨M 0 1, M 0 1, (by rw [←pow_two, nsq_eq_1]), (by rw [←pow_two, nsq_eq_1])⟩,
+     { have h : M 0 1 = 1 := congr_arg units.val h,
+       rw [h],
+       norm_num },
+     { have h : M 0 1 = -1 := congr_arg units.val h,
+       rw [h],
+       norm_num } },
+
+  rcases (reduced_lt_iff_of_pos_def (is_positive_definite_smul M hpd) hpd).mp hlt with
+    ha | ⟨ha, habs | ⟨habs, hsgn | ⟨hsgn, hc⟩⟩⟩,
+  { apply not_lt_of_ge _ ha,
+    apply le_trans hr.2.1,
+    convert mul_le_mul_of_nonneg_left (int.ge_one_of_pos (pow_two_pos hn)) (le_of_lt (val_1_1_pos hpd)),
+    simp,
+    exact ga_eq.symm },
+  { apply not_lt_of_ge _ habs,
+    rw [smul_val_1_0, hm, mul_zero, zero_add, abs_mul, abs_n_eq_1, mul_one, add_comm],
+    cases int.units_eq_one_or ⟨M 1 0, -M 0 1, trans (by simp [det_2x2, hm, mul_comm]) M.det_coe_fun, trans (by simp [det_2x2, hm]) M.det_coe_fun⟩,
+    { have h : M 1 0 = 1 := congr_arg units.val h,
+      convert abs_b_le_multiple_a (le_trans hr.1 hr.2.1),
+      simp [h] },
+    { have h : M 1 0 = -1 := congr_arg units.val h,
+      rw [←abs_neg (f 1 0), h, neg_one_mul],
+      refine abs_b_le_multiple_a (le_trans _ hr.2.1),
+      rw [abs_neg],
+      exact hr.1 },
+    },
+  { by_cases f 1 0 = 0,
+    { rw [h, abs_eq_zero.mp (trans habs (abs_eq_zero.mpr h))] at hsgn, exact lt_irrefl _ hsgn },
+    { rw [sign'_of_pos (lt_of_le_of_ne b_nonneg (ne.symm h))] at hsgn, cases hsgn } },
+  { apply not_lt_of_ge _ hc,
+    rw [smul_val_1_1, a_eq_c],
+    apply min_of_reduced_aux (λ hop, ho hop.1) (le_trans hr.1 hr.2.1) (le_refl _) },
 end
 
 lemma min_of_reduced {f : QF d} (hf : is_positive_definite f) (f_red : is_reduced f) :
-  ∀ (g : QF d), g ∈ mul_action.orbit (special_linear_group (fin 2) ℤ) f → ¬ g < f :=
+  ∀ (g : QF d), g ∈ mul_action.orbit SL₂ℤ f → ¬ g < f :=
 begin
-  cases f with f,
-  have b_le_a : 2 * abs (f 1 0) ≤ f 0 0 := f_red.1,
-  have a_le_c : f 0 0 ≤ f 1 1 := f_red.2.1,
-  have fa_pos : 0 < f 0 0 := val_0_0_pos hf,
-  have fc_pos : 0 < f 1 1 := val_1_1_pos hf,
-
-  rintros ⟨g, _⟩ ⟨N, hN⟩ g_lt_f,
-  have ga_pos : 0 < g 0 0 := a_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
-  have gc_pos : 0 < g 1 1 := c_pos_of_mem_orbit_pos_def hf ⟨N, hN⟩,
-
-  have hdet : N 0 0 * N 1 1 - N 0 1 * N 1 0 = 1,
-  { sorry }, -- simpa using [N.2]
-  have hmn : ¬ (N 0 0 = 0 ∧ N 0 1 = 0),
-  { rintros ⟨hm, hn⟩,
-    simpa [hm, hn] using hdet },
-
-  have hN : matrix_action N f = g := congr_arg subtype.val hN,
-  have : g 0 0 = f 0 0 * N 0 0 ^ 2 + 2 * f 1 0 * N 0 0 * N 0 1 + f 1 1 * N 0 1 ^ 2,
-  { rw [← hN, coe_fn_matrix_action, matrix.mul_val], sorry },
-
-  rcases (prod.lex_def _ _).mp g_lt_f with a_lt | ⟨a_eq, b_lt⟩,
-  { have a_lt := (int.nat_abs_lt_of_pos ga_pos fa_pos).mpr a_lt,
-    rw this at a_lt,
-    have := not_lt_of_ge (min_of_reduced_aux hmn b_le_a a_le_c),
-    contradiction },
-
-  have a_eq : g 0 0 = f 0 0,
-  { rw [← int.nat_abs_pos fa_pos, ← int.nat_abs_pos ga_pos],
-    exact congr_arg _ a_eq },
-  rw a_eq at this,
-
-  have bound_mn : (abs (N 0 0) - abs (N 0 1))^2 + abs (N 0 0) * abs (N 0 1) ≤ 1 :=
-    (mul_le_mul_left fa_pos).mp (le_trans
-      (min_of_reduced_aux_aux b_le_a a_le_c)
-      (le_of_eq (trans (mul_one _) this).symm)),
-
-  by_cases N 0 1 = 0,
-  { apply change_xy_not_lt_of_reduced hf f_red (N 1 0),
-    convert g_lt_f,
-    rw smul_def,
-    congr,
-    rw ←hN,
-    congr,
-    ext i j,
-    fin_cases i; fin_cases j,
-    { show 1 = N 0 0, sorry },
-    { show 0 = N 0 1, exact h.symm },
-    { show N 1 0 = N 1 0, refl },
-    { show 1 = N 1 1, sorry } },
+  rintros g ⟨N, hN⟩ g_lt_f,
+  by_cases hm : N 0 0 = 0,
+  { refine not_lt_of_m_eq_zero hf f_red hm _,
+    convert g_lt_f },
+  by_cases hn : N 0 1 = 0,
+  { refine not_lt_of_n_eq_zero hf f_red hn _,
+    convert g_lt_f },
+  sorry
 end
 
 /-- In each orbit, there is a unique reduced quadratic form -/
