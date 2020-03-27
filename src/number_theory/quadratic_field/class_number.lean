@@ -243,9 +243,9 @@ calc (M • f) 1 1 = (M ⬝ f ⬝ Mᵀ) 1 1 : rfl
   by ring
 
 instance : is_submonoid Γ_infinity :=
-⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, sorry ⟩⟩
+⟨⟨0, by finish⟩, λ a b ⟨ma, ha⟩ ⟨mb, hb⟩, ⟨ma + mb, by { simp [matrix.mul_val, ha, hb, add_comm] } ⟩⟩
 instance : is_subgroup Γ_infinity :=
-⟨λ a ⟨ma, ha⟩, ⟨-ma, sorry ⟩⟩
+⟨λ a ⟨ma, ha⟩, ⟨-ma, by { simp [adjugate_2x2, ha] } ⟩⟩
 
 instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
 def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
@@ -493,7 +493,7 @@ lemma swap_x_y_lt_of_eq_of_neg {f : QF d} (hac : f 0 0 = f 1 1) (hb : f 1 0 < 0)
     prod.lex.left _ _ _ (by { simp [swap_x_y_smul_1_0, sign'_of_neg hb, sign'_of_pos (neg_pos.mpr hb)], exact dec_trivial }) ⟩ ) ⟩ )
 
 /-- `change_xy k` changes the coefficient for `xy` while keeping the coefficient for `x²` the same -/
-def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], sorry⟩
+def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], by simp [det_2x2]⟩
 
 lemma change_xy_smul (k : ℤ) (f : QF d) :
   (⇑(change_xy k • f) : M₂ℤ) = ![![1, 0], ![k, 1]] ⬝ f ⬝ ![![1, k], ![0, 1]] :=
@@ -869,11 +869,14 @@ begin
     ha | ⟨ha, habs | ⟨habs, hsgn | ⟨hsgn, hc⟩⟩⟩,
   { apply not_lt_of_ge _ ha,
     simpa [c_eq_a, msq_eq_one, nsq_eq_one, two_b_eq_a, mul_assoc, self_mul_add_self_nonneg_of_pos hf.a_pos] },
-  { suffices : (2 : ℤ) ∣ -1,
-    { norm_num at this },
+  { suffices : (2 : ℤ) ≤ 1,
+    { cases this },
+    apply int.le_of_dvd (show (0 : ℤ) < 1, by norm_num),
     have : 2 * (N 1 0 * N 0 1) = N 0 1 * N 1 0 + N 0 0 * N 1 1 - 1,
     { rw [two_mul, ←N.det_coe_fun, det_2x2], ring },
-    use N 1 0 * N 0 0 + N 1 0 * N 0 1 + N 1 1 * N 0 1,
+    use -(N 1 0 * N 0 0 + N 1 0 * N 0 1 + N 1 1 * N 0 1),
+    rw mul_neg_eq_neg_mul_symm,
+    apply eq.symm,
     apply neg_eq_iff_add_eq_zero.mpr,
     apply @int.abs_mul_lt_abs_self _ (f 1 0),
     convert habs,
