@@ -91,9 +91,9 @@ calc eval M (λ j', if i = j' ∨ j = j' then 1 else 0)
 ... = finset.sum univ (λ i' : n, ite (i = i' ∨ j = i') (finset.sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
     : by { congr, ext i', split_ifs, { refl }, simp }
 ... = finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
-    : by { erw [sum_ite _ _ (λ x, x), filter_or, sum_union]; simp [filter_eq, h] }
+    : by { erw [sum_ite _ _, filter_or, sum_union]; simp [filter_eq, h] }
 ... = M i i + M i j + M j i + M j j
-    : by { erw [sum_ite _ _ (λ x, x), sum_ite _ _ (λ x, x), filter_or, sum_union, sum_union]; simp [filter_eq, h] }
+    : by { erw [sum_ite _ _, sum_ite _ _, filter_or, sum_union, sum_union]; simp [filter_eq, h] }
 ... = M i i + 2 * M i j + M j j : by simp [two_mul, coe_fn_symmetric]
 
 /-- Quadratic forms are defined uniquely by their evaluation. -/
