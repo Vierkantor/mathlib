@@ -95,21 +95,17 @@ section coe_lemmas
 
 variables (A B : special_linear_group n R)
 
-@[simp] lemma inv_val : ↑(A⁻¹) = adjugate A := rfl
+@[simp] lemma coe_eq_apply : (A : matrix n n R) = ⇑A := rfl
 
-@[simp] lemma inv_apply : ⇑(A⁻¹) = adjugate A := rfl
+@[simp] lemma val_eq_apply : A.val = ⇑A := rfl
 
-@[simp] lemma mul_val : ↑(A * B) = A ⬝ B := rfl
+@[simp, priority 1] lemma inv_apply : ⇑(A⁻¹) = adjugate A := rfl
 
 @[simp] lemma mul_apply : ⇑(A * B) = (A ⬝ B) := rfl
 
-@[simp] lemma one_val : ↑(1 : special_linear_group n R) = (1 : matrix n n R) := rfl
-
 @[simp] lemma one_apply : ⇑(1 : special_linear_group n R) = (1 : matrix n n R) := rfl
 
-@[simp] lemma det_coe_matrix : det A = 1 := A.2
-
-lemma det_coe_fun : det ⇑A = 1 := A.2
+@[simp] lemma det_coe_fun : det ⇑A = 1 := A.2
 
 @[simp] lemma to_lin_mul : to_lin (A * B) = (to_lin A).comp (to_lin B) := matrix.mul_to_lin A B
 
@@ -160,6 +156,22 @@ by { ext v i, rw [coe_to_GL, to_lin_mul], refl }
   to `general_linear_group n R`. -/
 def embedding_GL : (special_linear_group n R) →* (general_linear_group R (n → R)) :=
 ⟨λ A, to_GL A, by simp, by simp⟩
+
+section vec_mul
+
+variables {A : special_linear_group n R} {v v' : n → R}
+
+lemma vec_mul_injective (h : vec_mul v A = vec_mul v' A) : v = v' :=
+calc v = vec_mul (vec_mul v A) ⇑A⁻¹ : by simp [mul_adjugate]
+   ... = vec_mul (vec_mul v' A) ⇑A⁻¹ : by rw h
+   ... = v' : by simp [mul_adjugate]
+
+lemma mul_vec_injective (h : mul_vec A v = mul_vec A v') : v = v' :=
+calc v = mul_vec ⇑A⁻¹ (mul_vec A v) : by simp [adjugate_mul]
+   ... = mul_vec ⇑A⁻¹ (mul_vec A v') : by rw h
+   ... = v' : by simp [adjugate_mul]
+
+end vec_mul
 
 end special_linear_group
 
