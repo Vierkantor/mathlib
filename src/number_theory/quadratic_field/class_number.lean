@@ -23,6 +23,8 @@ section to_other_files
 lemma fin.one_of_two : (fin.succ 0 : fin 2) = 1 := rfl
 @[simp] lemma fin.default_one : (default (fin 1)) = 0 := rfl
 
+@[simp] lemma int.neg_neg_succ_of_nat {n : ℕ} : - -[1+ n] = n + 1 := rfl
+
 @[simp]
 lemma int.coe_nat_abs_eq_abs {a : ℤ} : (a.nat_abs : ℤ) = abs a :=
 by rw [int.abs_eq_nat_abs]
@@ -409,48 +411,27 @@ def sign' : ℤ → fin 3
 
 @[simp] lemma sign'_nat_add_one {n : ℕ} : sign' (↑n + 1) = 0 := rfl
 
-lemma sign'_iff_zero : Π {a : ℤ}, sign' a = 1 ↔ a = 0
+lemma sign'_coe : Π (n : ℕ), sign' ↑n ≤ 1
+| 0 := le_refl _
+| (n+1) := dec_trivial
+
+lemma sign'_neg_lt_sign'_self_of_neg : Π {a : ℤ}, a < 0 → sign' (-a) < sign' a
+| (n+1:ℕ) h := by cases h
+| 0       h := by cases h
+| -[1+ n] h := by { simp [sign'], exact dec_trivial }
+
+def sign'_le_two : Π (a : ℤ), sign' a ≤ 2
 | (nat.succ n) := dec_trivial
 | 0            := dec_trivial
 | -[1+ n]      := dec_trivial
 
-lemma sign'_iff_pos : Π {a : ℤ}, sign' a = 0 ↔ 0 < a
-| (nat.succ n) := by { norm_cast, exact dec_trivial }
-| 0            := dec_trivial
-| -[1+ n]      := dec_trivial
-
-lemma sign'_iff_nonneg : Π {a : ℤ}, sign' a ≤ 1 ↔ 0 ≤ a
-| (nat.succ n) := dec_trivial
-| 0            := dec_trivial
-| -[1+ n]      := dec_trivial
-
-lemma sign'_gt_zero : Π {a : ℤ}, 0 < sign' a ↔ a ≤ 0
-| (nat.succ n) := dec_trivial
-| 0            := dec_trivial
-| -[1+ n]      := dec_trivial
-
-lemma sign'_iff_nonpos : Π {a : ℤ}, 1 ≤ sign' a ↔ a ≤ 0
-| (nat.succ n) := dec_trivial
-| 0            := dec_trivial
-| -[1+ n]      := dec_trivial
-
-lemma sign'_iff_neg : Π {a : ℤ}, sign' a = 2 ↔ a < 0
-| (nat.succ n) := dec_trivial
-| 0            := dec_trivial
-| -[1+ n]      := sorry -- TODO: should be automatic, no?
-
-lemma sign'_lt_sign'_neg_self : Π {a : ℤ}, sign' a < sign' (-a) ↔ 0 < a
-| (n+1:ℕ) := by { norm_cast, exact dec_trivial }
-| 0       := dec_trivial
-| -[1+ n] := dec_trivial
-
-lemma sign'_neg_lt_sign'_self : Π {a : ℤ}, sign' (-a) < sign' a ↔ a < 0
-| (n+1:ℕ) := dec_trivial
-| 0       := dec_trivial
-| -[1+ n] := sorry -- TODO: should be automatic, no?
-
--- TODO:
-lemma sign'_lt_iff : Π {a b : ℤ}, sign' a < sign' b ↔ (0 < a ∧ b ≤ 0) ∨ (a = 0 ∧ b < 0) := sorry
+lemma sign'_lt_iff : Π {a b : ℤ}, sign' a < sign' b ↔ (0 < a ∧ b ≤ 0) ∨ (a = 0 ∧ b < 0)
+| (n+1:ℕ) (m+1:ℕ) := ⟨λ h, (lt_irrefl _ h).elim, by rintro (⟨_, ⟨⟩⟩ | ⟨_, ⟨⟩⟩)⟩
+| (n+1:ℕ) 0       := ⟨λ h, or.inl ⟨int.coe_nat_succ_pos n, le_refl _⟩, λ h, dec_trivial⟩
+| (n+1:ℕ) -[1+ m] := ⟨λ h, or.inl ⟨int.coe_nat_succ_pos n, dec_trivial⟩, λ h, dec_trivial⟩
+| 0       (n:ℕ)   := ⟨λ h, (not_lt_of_ge (sign'_coe n) h).elim, by rintro (⟨⟨⟩, _⟩ | ⟨_, ⟨⟩⟩)⟩
+| 0       -[1+ n] := ⟨λ h, or.inr ⟨rfl, int.neg_succ_lt_zero n⟩, λ h, dec_trivial ⟩
+| -[1+ n] b       := ⟨λ h, (not_lt_of_ge (sign'_le_two b) h).elim, by rintro (⟨⟨⟩, _⟩ | ⟨⟨⟩, _⟩)⟩
 
 lemma sign'_lt_iff_of_abs_eq {a b : ℤ} (hab : abs a = abs b) : sign' a < sign' b ↔ (b < 0 ∧ 0 < a) :=
 iff.trans sign'_lt_iff
@@ -610,7 +591,7 @@ reduced.lt_iff.mpr (or.inr
   ⟨ by rw [swap_x_y_smul_0_0, hac],
     or.inr
       ⟨ by rw [swap_x_y_smul_1_0, abs_neg],
-        or.inl (by simpa using reduced.sign'_neg_lt_sign'_self.mpr hb)⟩⟩)
+        or.inl (by simpa using reduced.sign'_neg_lt_sign'_self_of_neg hb)⟩⟩)
 
 /-- `change_xy k` changes the coefficient for `xy` while keeping the coefficient for `x²` the same -/
 def change_xy (k : ℤ) : SL₂ℤ := ⟨![![1, 0], ![k, 1]], by simp [det_2x2]⟩
@@ -980,7 +961,7 @@ lemma min_iff_reduced {f : pos_def_QF₂ℤ d} :
         (calc abs (1 * f 0 0 + f 1 0) = abs (2 * -f 1 0 + f 1 0) : by simp [← h, abs_of_neg b_neg]
                                   ... = abs (- f 1 0) : by ring
                                   ... = abs (f 1 0) : abs_neg _ )
-        (by { convert reduced.sign'_neg_lt_sign'_self.mpr b_neg, rw [←h, abs_of_neg b_neg], ring }))),
+        (by { convert reduced.sign'_neg_lt_sign'_self_of_neg b_neg, rw [←h, abs_of_neg b_neg], ring }))),
     λ h, le_of_not_gt (mt (swap_x_y_lt_of_eq_of_neg h) (minimal_iff.mp min swap_x_y))⟩,
   min_of_reduced⟩
 
