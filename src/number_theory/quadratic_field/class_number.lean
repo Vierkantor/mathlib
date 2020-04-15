@@ -20,7 +20,7 @@ open matrix
 section to_other_files
 
 @[simp] lemma fin.one {n : ℕ} : (fin.succ 0 : fin n.succ.succ) = 1 := rfl
-lemma fin.one_of_two {n : ℕ} : (fin.succ 0 : fin 2) = 1 := rfl
+lemma fin.one_of_two : (fin.succ 0 : fin 2) = 1 := rfl
 @[simp] lemma fin.default_one : (default (fin 1)) = 0 := rfl
 
 @[simp]
@@ -54,7 +54,7 @@ by rw [int.abs_eq_nat_abs, int.coe_nat_lt]
 lemma int.nat_abs_of_pos {a : ℤ} (ha : 0 < a) : (↑(a.nat_abs) : ℤ) = a :=
 int.nat_abs_of_nonneg (le_of_lt ha)
 
-lemma int.pos_iff_ge_one : ∀ {a : ℤ}, a > 0 ↔ a ≥ 1
+lemma int.pos_iff_ge_one : ∀ {a : ℤ}, 0 < a ↔ 1 ≤ a
 | 0 := by split; intro ha; linarith
 | (nat.succ n) := by split; intro ha; linarith
 | -[1+ n ] := by split; intro ha; linarith
@@ -306,7 +306,7 @@ instance : is_submonoid Γ_infinity :=
 instance : is_subgroup Γ_infinity :=
 ⟨λ a ⟨ma, ha⟩, ⟨-ma, by { simp [adjugate_2x2, ha] } ⟩⟩
 
-instance subset_has_scalar {α β} [monoid α] [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
+instance subset_has_scalar {α β} [has_scalar α β] (s : set α) : has_scalar s β := ⟨λ s b, s.1 • b⟩
 def submonoid_mul_action {α β} [monoid α] [mul_action α β] (s : set α) [is_submonoid s] : mul_action s β :=
 ⟨one_smul α, λ x y, @_root_.mul_smul α _ _ _ x.1 y.1⟩
 
@@ -603,7 +603,7 @@ lemma swap_x_y_smul_1_0 (f : pos_def_QF₂ℤ d) : (swap_x_y • f) 1 0 = - f 1 
 by simp [swap_x_y_smul, f.val_0_1]
 
 lemma swap_x_y_lt {f : pos_def_QF₂ℤ d} (hc : 0 < f 1 1) (h : f 1 1 < f 0 0) : (swap_x_y • f) < f :=
-prod.lex.left _ _ _ (by simpa [abs_of_pos hc, abs_of_pos (lt_trans hc h), pow_two])
+prod.lex.left _ _ (by simpa [abs_of_pos hc, abs_of_pos (lt_trans hc h), pow_two])
 
 lemma swap_x_y_lt_of_eq_of_neg {f : pos_def_QF₂ℤ d} (hac : f 0 0 = f 1 1) (hb : f 1 0 < 0) : (swap_x_y • f) < f :=
 reduced.lt_iff.mpr (or.inr
@@ -991,5 +991,3 @@ let ⟨g, ⟨e, m⟩, u⟩ := exists_unique_min f in
 ⟨ g, ⟨e, (min_iff_reduced).mp m⟩, λ g' ⟨e', r'⟩, u g' ⟨e', (min_iff_reduced).mpr r'⟩ ⟩
 
 end quadratic_form
-
-#lint
