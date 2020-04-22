@@ -1,10 +1,10 @@
-import data.int.gcd
+import algebra.gcd_domain
 import data.zsqrtd.basic
 import data.matrix.notation
 import group_theory.group_action
 import group_theory.quotient_group
+import linear_algebra.quadratic_form
 import linear_algebra.special_linear_group
-import number_theory.class_group
 import order.lexicographic
 import tactic.fin_cases
 import tactic.linarith
@@ -79,104 +79,33 @@ else have _ := (mul_lt_iff_lt_one_left (abs_pos_iff.mpr h')).mp h,
 
 end to_other_files
 
-/-- We represent a quadratic form in `n` variables with a symmetric `n` by `n` matrix.
+def std_basis {α : Type u} {n : Type v} [fintype n] [decidable_eq n] [has_zero α] [has_one α] :
+  n → n → α :=
+matrix.diagonal 1
 
-  The evaluation map for a form `M` sends a vector `x` to `xᵀ ⬝ M ⬝ x`.
--/
-def quadratic_form (n : Type u) [fintype n] (α : Type v) := {M : matrix n n α // Mᵀ = M }
+def integer_binary_quadratic_form :=
+{ Q : quadratic_form ℚ (fin 2 → ℚ) // ∃ (a c : ℤ), Q ![ 1, 0 ] = a ∧ Q ![ 0, 1 ] = c }
 
 -- Shorter notation for the case with 2 variables and integer coefficients.
 notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
 notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
-notation `QF₂ℤ` := quadratic_form (fin 2) ℤ
+notation `QF₂ℤ` := integer_binary_quadratic_form
 
 namespace quadratic_form
-variables {n : Type u} [fintype n] {α : Type v}
+variables {n : Type u} [fintype n] {α : Type v} {R₁ : Type v} [comm_ring R₁]
 
-def mk (M : matrix n n α) (hM : Mᵀ = M) : quadratic_form n α := ⟨M, hM⟩
-
-def from_tuple (a b c : α) : quadratic_form (fin 2) α :=
-⟨![ ![ a, b ], ![ b, c ] ], by { ext i j, fin_cases i; fin_cases j; refl }⟩
-
-instance : has_coe_to_fun (quadratic_form n α) :=
-⟨ λ _, n → n → α,
-  λ M, M.1 ⟩
-
-@[simp] lemma coe_fn_mk (M : matrix n n α) (hM : Mᵀ = M) :
-  ⇑(mk M hM) = M :=
+@[simp] lemma matrix.to_quadratic_form_apply (M : matrix n n R₁) (x : n → R₁) :
+  (M.to_quadratic_form : (n → R₁) → R₁) x = (row x ⬝ M ⬝ col x) ⟨⟩ ⟨⟩ :=
 rfl
 
-lemma coe_fn_symmetric (M : quadratic_form n α) (i j : n) : M i j = M j i :=
-show Mᵀ j i = M j i, by { erw M.2, refl }
+def mk (a b c : ℤ) : QF₂ℤ :=
+⟨ matrix.to_quadratic_form ![ ![ a, b ], ![ b, c ] ], ⟨ a, c, by simp, _ ⟩⟩
 
-@[simp] lemma transpose_coe_fn (M : quadratic_form n α) : (⇑ M)ᵀ = M := M.2
-
-@[ext]
-lemma ext : Π (M N : quadratic_form n α), (∀ i j, M i j = N i j) → M = N :=
-λ ⟨M, _⟩ ⟨N, _⟩ h, by { congr, ext, apply h }
-
-@[simp] lemma mk_coe_fn (M : quadratic_form n α) (hM : (⇑M : matrix n n α)ᵀ = ⇑M) : mk (⇑M) hM = M :=
-by { ext, refl }
-
+/-
 /-- A primitive quadratic form has no common divisor among its coefficients. -/
-def is_primitive [gcd_domain α] (M : quadratic_form n α) : Prop :=
+def is_primitive [gcd_domain α] (M : quadratic_form α (n → α)) : Prop :=
 (univ : finset (n × n)).fold gcd (1 : α) (λ ⟨i, j⟩, M i j) = 1
-
-section eval
-/--
-  Evaluate the quadratic form as a function.
-
-  This evaluation function is defined for all α for which the expression
-  `ax^2 + bxy + ... + cy^2` makes sense.
 -/
-def eval [add_comm_monoid α] [has_mul α] (M : quadratic_form n α) (x : n → α) : α :=
-(row x ⬝ M ⬝ col x) ⟨⟩ ⟨⟩
-
-lemma eval_val [semiring α] {M : quadratic_form n α} {x : n → α} :
-  eval M x = univ.sum (λ i : n, univ.sum (λ j : n, x j * M i j * x i)) :=
-calc eval M x = univ.sum (λ i : n, (univ.sum (λ j : n, x j * M j i) * x i)) : rfl
-          ... = univ.sum (λ i : n, univ.sum (λ j : n, x j * M i j * x i)) :
-  by simp_rw [sum_mul, coe_fn_symmetric]
-
-lemma eval_basis [semiring α] [decidable_eq n] (M : quadratic_form n α) (i : n) :
-  eval M (λ j, if i = j then 1 else 0) = M i i :=
-calc eval M (λ j, if i = j then 1 else 0)
-    = finset.sum univ (λ i' : n, finset.sum univ (λ j : n, ite (i = i') (ite (i = j) (M i' j) 0) 0)) :
-    by { simp [eval_val] }
-... = finset.sum univ (λ i' : n, ite (i = i') (finset.sum univ (λ j : n, (ite (i = j) (M i' j) 0))) 0) :
-    by { congr, ext i', split_ifs, { refl }, simp }
-... = M i i : by simp
-
-lemma eq_of_eval_eq_aux [semiring α] [decidable_eq n] (M : quadratic_form n α) {i j : n} (h : j ≠ i) :
-  eval M (λ j', if i = j' ∨ j = j' then 1 else 0) = M i i + 2 * M i j + M j j :=
-calc eval M (λ j', if i = j' ∨ j = j' then 1 else 0)
-    = finset.sum univ (λ i' : n, finset.sum univ (λ j' : n, ite (i = i' ∨ j = i') (ite (i = j' ∨ j = j') (M i' j') 0) 0))
-    : by simp [eval_val]
-... = finset.sum univ (λ i' : n, ite (i = i' ∨ j = i') (finset.sum univ (λ j' : n, ite (i = j' ∨ j = j') (M i' j') 0)) 0)
-    : by { congr, ext i', split_ifs, { refl }, simp }
-... = finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M i j') 0) + finset.sum univ (λ (j' : n), ite (i = j' ∨ j = j') (M j j') 0)
-    : by { erw [sum_ite _ _, filter_or, sum_union]; simp [filter_eq, h] }
-... = M i i + M i j + M j i + M j j
-    : by { erw [sum_ite _ _, sum_ite _ _, filter_or, sum_union, sum_union]; simp [filter_eq, h] }
-... = M i i + 2 * M i j + M j j : by simp [two_mul, coe_fn_symmetric]
-
-/-- Quadratic forms are defined uniquely by their evaluation. -/
-lemma eq_of_eval_eq [ring α] [decidable_eq n] (M N : quadratic_form n α) (two_mul_cancel : ∀ x y : α, 2 * x = 2 * y → x = y) (h : ∀ x, eval M x = eval N x) : M = N :=
-begin
-  ext i j,
-  have eq_ii : M i i = N i i := by rw [← eval_basis, ← eval_basis, h],
-  have eq_jj : M j j = N j j := by rw [← eval_basis, ← eval_basis, h],
-  by_cases hij : j = i,
-  { rw [hij, eq_ii] },
-  have eq' : M i i + 2 * M i j + M j j = N i i + 2 * N i j + N j j,
-  { rw [← eq_of_eval_eq_aux M hij, ← eq_of_eval_eq_aux N hij, h] },
-  rw [eq_ii, eq_jj] at eq',
-  apply two_mul_cancel,
-  apply add_left_cancel,
-  apply add_right_cancel,
-  exact eq'
-end
-end eval
 
 section matrix_action
 
@@ -192,8 +121,7 @@ instance : has_scalar (matrix n n α) (quadratic_form n α) :=
 ⟨ λ M N, mk (M ⬝ N ⬝ Mᵀ) (by simp [matrix.mul_assoc, transpose_coe_fn]) ⟩
 
 lemma coe_fn_smul (M : matrix n n α) (f : quadratic_form n α) :
-  ⇑(M • f) = M ⬝ f ⬝ Mᵀ
-:= rfl
+  ⇑(M • f) = M ⬝ f ⬝ Mᵀ := rfl
 
 @[simp]
 lemma neg_action (M : matrix n n α) (f : quadratic_form n α) : -M • f = M • f :=
