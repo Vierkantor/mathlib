@@ -450,10 +450,75 @@ variables [decidable_eq n] [invertible (2 : R₁)]
 variables {m : Type w} [fintype m] [decidable_eq m]
 open_locale matrix
 
+lemma to_matrix_apply (Q : quadratic_form R₁ (n → R₁)) (i j : n) :
+  Q.to_matrix i j = ⅟2 * (Q ((λ n, ite (n = i) 1 0) + λ n, ite (n = j) 1 0)
+                          - Q (λ n, ite (n = i) 1 0) - Q (λ n, ite (n = j) 1 0)) :=
+rfl
+
+lemma to_matrix_left_inverse {M : matrix n n R₁} (h : Mᵀ = M) :
+  M.to_quadratic_form.to_matrix = M :=
+begin
+  unfold to_matrix matrix.to_quadratic_form,
+  rw associated_left_inverse (sym_bilin_form.to_bilin_form_is_sym.mpr h),
+  apply bilin_form.to_matrix_right_inverse
+end
+
+lemma to_matrix_right_inverse (Q : quadratic_form R₁ (n → R₁)):
+  Q.to_matrix.to_quadratic_form = Q :=
+begin
+  unfold to_matrix matrix.to_quadratic_form,
+  rw bilin_form.to_matrix_left_inverse,
+  apply associated_right_inverse
+end
+
 @[simp]
 lemma to_matrix_comp (Q : quadratic_form R₁ (m → R₁)) (f : (n → R₁) →ₗ[R₁] (m → R₁)) :
   (Q.comp f).to_matrix = f.to_matrixᵀ ⬝ Q.to_matrix ⬝ f.to_matrix :=
 by { ext, simp [to_matrix, bilin_form.to_matrix_comp] }
+
+@[simp]
+lemma comp_to_quadratic_form {M : matrix m m R₁} (h : Mᵀ = M) (f : (n → R₁) →ₗ[R₁] (m → R₁)) :
+  M.to_quadratic_form.comp f = (f.to_matrixᵀ ⬝ M ⬝ f.to_matrix).to_quadratic_form :=
+by rw [←to_matrix_right_inverse (M.to_quadratic_form.comp f), to_matrix_comp, to_matrix_left_inverse h]
+
+section matrix_action
+
+open matrix
+/--
+  Matrices have a left action on quadratic forms by transposed multiplication on the input.
+
+  For example, `Q ![x, y]` is mapped to `Q ![αx + βy, γx + δy]` by the matrix `![![α, β], ![γ, δ]].`
+-/
+instance matrix_smul : has_scalar (matrix n n R₁) (quadratic_form R₁ (n → R₁)) :=
+⟨ λ M Q, Q.comp Mᵀ.to_lin ⟩
+
+lemma smul_eq (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) : M • Q = Q.comp Mᵀ.to_lin := rfl
+
+@[simp] lemma coe_fn_smul (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) :
+  ⇑(M • Q) = Q ∘ Mᵀ.to_lin :=
+rfl
+
+@[simp]
+lemma neg_action (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) : -M • Q = M • Q :=
+by { ext, simp [coe_fn_smul, neg_mul_vec, map_neg] }
+
+/--
+  The action works by multiplying on either side.
+-/
+@[simp] lemma smul_to_quadratic_form [invertible (2 : R₁)] (M N : matrix n n R₁) (hN : Nᵀ = N) :
+  M • to_quadratic_form N = to_quadratic_form (M ⬝ N ⬝ Mᵀ) :=
+begin
+  haveI : decidable_eq n := λ _ _, classical.prop_decidable _,
+  apply trans (comp_to_quadratic_form hN Mᵀ.to_lin),
+  simp [to_lin_to_matrix]
+end
+
+instance matrix_mul_action [decidable_eq n] : mul_action (matrix n n R₁) (quadratic_form R₁ (n → R₁)) :=
+{ mul_smul := λ M N Q, by { ext, simp },
+  one_smul := λ Q, by { ext, simp },
+  ..quadratic_form.matrix_smul }
+
+end matrix_action
 
 section discriminant
 variables {Q : quadratic_form R₁ (n → R₁)}
@@ -467,6 +532,19 @@ by simp only [discr, to_matrix_smul, matrix.det_smul]
 lemma discr_comp (f : (n → R₁) →ₗ[R₁] (n → R₁)) :
   (Q.comp f).discr = f.to_matrix.det * f.to_matrix.det * Q.discr :=
 by simp [discr, mul_left_comm, mul_comm]
+
+variables [decidable_eq n] [invertible (2 : R₁)]
+
+@[simp] lemma discr_matrix_smul (Q : quadratic_form R₁ (n → R₁)) (M : matrix n n R₁) :
+discr (M • Q) = M.det * M.det * discr Q :=
+trans (discr_comp Mᵀ.to_lin) (by simp [to_lin_to_matrix])
+
+/--
+Matrices with determinant = 1 preserve the discriminant of a quadratic form.
+-/
+theorem discr_invariant_for_SL (Q : quadratic_form R₁ (n → R₁)) (M : matrix.special_linear_group n R₁) :
+  discr (M.1 • Q) = Q.discr :=
+by simp
 
 end discriminant
 

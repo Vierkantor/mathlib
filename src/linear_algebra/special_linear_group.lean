@@ -95,7 +95,7 @@ section coe_lemmas
 
 variables (A B : special_linear_group n R)
 
-@[simp] lemma coe_eq_apply : (A : matrix n n R) = ⇑A := rfl
+@[simp] lemma coe_eq_apply : (↑A : matrix n n R) = ⇑A := rfl
 
 @[simp] lemma val_eq_apply : A.val = ⇑A := rfl
 

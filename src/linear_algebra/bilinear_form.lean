@@ -381,6 +381,14 @@ def bilin_form_equiv_matrix : bilin_form R (n → R) ≃ₗ[R] matrix n n R :=
   right_inv := to_bilin_form_to_matrix,
   ..bilin_form.to_matrixₗ }
 
+lemma bilin_form.to_matrix_left_inverse (B : bilin_form R (n → R)) :
+  B.to_matrix.to_bilin_form = B :=
+bilin_form_equiv_matrix.left_inv B
+
+lemma bilin_form.to_matrix_right_inverse (M : matrix n n R) :
+  M.to_bilin_form.to_matrix = M :=
+bilin_form_equiv_matrix.right_inv M
+
 end matrix
 
 namespace refl_bilin_form
@@ -406,6 +414,9 @@ namespace sym_bilin_form
 open sym_bilin_form bilin_form
 
 variables {R : Type*} {M : Type*} [ring R] [add_comm_group M] [module R M] {B : bilin_form R M}
+variables {R₂ : Type*} [comm_ring R₂] [module R₂ M] {n : Type*} [fintype n] [decidable_eq n]
+open matrix
+open_locale matrix
 
 /-- The proposition that a bilinear form is symmetric -/
 def is_sym (B : bilin_form R M) : Prop := ∀ (x y : M), B x y = B y x
@@ -418,6 +429,10 @@ lemma is_refl : refl_bilin_form.is_refl B := λ x y H1, H x y ▸ H1
 
 lemma ortho_sym {x y : M} :
 is_ortho B x y ↔ is_ortho B y x := refl_bilin_form.ortho_sym (is_refl H)
+
+lemma to_bilin_form_is_sym {M : matrix n n R₂} : is_sym M.to_bilin_form ↔ M.transpose = M :=
+⟨ λ h, by { ext, rw ←to_matrix_right_inverse M, simp [to_matrix_apply, sym h] },
+  λ h x y, show (row x ⬝ M ⬝ col y) ⟨⟩ ⟨⟩ = (row y ⬝ M ⬝ col x)ᵀ ⟨⟩ ⟨⟩, by simp [h, matrix.mul_assoc] ⟩
 
 end sym_bilin_form
 
