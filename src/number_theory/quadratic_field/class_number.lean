@@ -61,34 +61,9 @@ by rw [int.abs_eq_nat_abs, int.coe_nat_lt]
 @[simp] lemma int.units_abs (u : units ℤ) : abs (u : ℤ) = (1 : ℤ) :=
 int.nat_abs_eq_iff_abs_eq.mp (int.units_nat_abs u)
 
-end to_other_files
+section to_int_vector
 
-structure int_bin_quadratic_form :=
-(val : quadratic_form ℚ (fin 2 → ℚ))
-(is_int : ∀ x : fin 2 → ℚ, (∀ i, ∃ (y : ℤ), x i = y) → ∃ y : ℤ, val x = y )
-
--- Shorter notation for the case with 2 variables and integer coefficients.
-notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
-notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
-notation `SL₂ℚ` := matrix.special_linear_group (fin 2) ℚ
-notation `QF₂ℤ` := int_bin_quadratic_form
-
-namespace int_bin_quadratic_form
-
-variables {n : Type u} [fintype n] {R : Type v} {R₁ : Type v} [comm_ring R₁]
-open quadratic_form
-
-lemma eq_iff {Q Q' : QF₂ℤ} : Q = Q' ↔ Q.val = Q'.val :=
-by { cases Q, cases Q', split; intro h; congr; exact h }
-
-lemma num_eq_self_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : ↑a.num = a :=
-by { cases h, rw [h_h, rat.coe_int_num] }
-
-lemma denom_eq_one_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : a.denom = 1 :=
-by { cases h, rw [h_h, rat.coe_int_denom] }
-
-lemma apply_val_int (Q : QF₂ℤ) (x y : ℤ) : ↑(Q.val ![ x, y ]).num = Q.val ![ x, y ] :=
-num_eq_self_of_is_int (Q.is_int _ (λ i, by fin_cases i; simp))
+variables {n : Type*} [fintype n]
 
 def common_denom (x : n → ℚ) : ℤ := finset.univ.fold lcm 1 (λ (i : n), (x i).denom)
 
@@ -158,6 +133,36 @@ end
 lemma to_int_vector_eq_zero {x : n → ℚ} {i : n} : to_int_vector x i = 0 ↔ x i = 0 :=
 ⟨ λ h, (mul_eq_zero.mp (rat.zero_iff_num_zero.mpr h)).elim (λ h, false.elim (common_denom_nonzero x (by exact_mod_cast h))) id,
   λ h, (by simp [to_int_vector, h]) ⟩
+end to_int_vector
+
+end to_other_files
+
+structure int_bin_quadratic_form :=
+(val : quadratic_form ℚ (fin 2 → ℚ))
+(is_int : ∀ x : fin 2 → ℚ, (∀ i, ∃ (y : ℤ), x i = y) → ∃ y : ℤ, val x = y )
+
+-- Shorter notation for the case with 2 variables and integer coefficients.
+notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
+notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
+notation `SL₂ℚ` := matrix.special_linear_group (fin 2) ℚ
+notation `QF₂ℤ` := int_bin_quadratic_form
+
+namespace int_bin_quadratic_form
+
+variables {n : Type u} [fintype n] {R : Type v} {R₁ : Type v} [comm_ring R₁]
+open quadratic_form
+
+lemma eq_iff {Q Q' : QF₂ℤ} : Q = Q' ↔ Q.val = Q'.val :=
+by { cases Q, cases Q', split; intro h; congr; exact h }
+
+lemma num_eq_self_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : ↑a.num = a :=
+by { cases h, rw [h_h, rat.coe_int_num] }
+
+lemma denom_eq_one_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : a.denom = 1 :=
+by { cases h, rw [h_h, rat.coe_int_denom] }
+
+lemma apply_val_int (Q : QF₂ℤ) (x y : ℤ) : ↑(Q.val ![ x, y ]).num = Q.val ![ x, y ] :=
+num_eq_self_of_is_int (Q.is_int _ (λ i, by fin_cases i; simp))
 
 lemma eq_of_eq_on_int (Q Q' : quadratic_form ℚ (n → ℚ))
   (h : ∀ (x : n → ℤ), Q (coe ∘ x) = Q' (coe ∘ x)) : Q = Q' :=
@@ -217,6 +222,7 @@ begin
     assumption
 end
 
+section of_tuple
 @[simp] lemma matrix.to_quadratic_form_apply (M : matrix n n R₁) (x : n → R₁) :
   (M.to_quadratic_form : (n → R₁) → R₁) x = dot_product (λ j, dot_product x (λ i, M i j)) x :=
 show (row x ⬝ M ⬝ col x) ⟨⟩ ⟨⟩ = dot_product (λ j, dot_product x (λ i, M i j)) x,
@@ -243,6 +249,9 @@ lemma of_tuple_apply (a b c x y : ℤ) :
   ... = rat.num (@coe ℤ ℚ _ (x * x * a + x * y * b + y * y * c)) : by norm_cast
   ... = x * x * a + x * y * b + y * y * c : rat.coe_int_num _
 
+end of_tuple
+
+section coeff
 def coeff_a (Q : QF₂ℤ) : ℤ :=
 Q 1 0
 
@@ -289,12 +298,69 @@ lemma apply_val (Q : QF₂ℤ) (x y : ℤ) :
   Q x y = x * x * coeff_a Q + x * y * coeff_b Q + y * y * coeff_c Q :=
 by rw [←of_tuple_apply, of_tuple_coeff]
 
+@[simp] lemma to_matrix_of_tuple (a b c : ℤ) : to_matrix (of_tuple a b c).val = ![![a, b/2], ![b/2, c]] :=
+to_matrix_left_inverse (by { ext i j, fin_cases i; fin_cases j; refl })
+
+@[simp] lemma to_matrix_val_0_0 (Q : QF₂ℤ) : to_matrix Q.val 0 0 = coeff_a Q :=
+by { rw [←of_tuple_coeff Q, coeff_a_of_tuple, to_matrix_of_tuple], refl }
+
+@[simp] lemma to_matrix_val_0_1 (Q : QF₂ℤ) : to_matrix Q.val 0 1 = coeff_b Q / 2 :=
+by { rw [←of_tuple_coeff Q, coeff_b_of_tuple, to_matrix_of_tuple], refl }
+
+@[simp] lemma to_matrix_val_1_0 (Q : QF₂ℤ) : to_matrix Q.val 1 0 = coeff_b Q / 2 :=
+by { rw [←of_tuple_coeff Q, coeff_b_of_tuple, to_matrix_of_tuple], refl }
+
+@[simp] lemma to_matrix_val_1_1 (Q : QF₂ℤ) : to_matrix Q.val 1 1 = coeff_c Q :=
+by { rw [←of_tuple_coeff Q, coeff_c_of_tuple, to_matrix_of_tuple], refl }
+
+lemma eq_of_coeffs_eq {Q Q' : QF₂ℤ} :
+  coeff_a Q = coeff_a Q' → coeff_b Q = coeff_b Q' → coeff_c Q = coeff_c Q' → Q = Q' :=
+begin
+  intros,
+  rw [←of_tuple_coeff Q, ←of_tuple_coeff Q'],
+  congr; assumption
+end
+
+lemma eq_iff_coeffs_eq {Q Q' : QF₂ℤ} :
+  Q = Q' ↔ (coeff_a Q = coeff_a Q' ∧ coeff_b Q = coeff_b Q' ∧ coeff_c Q = coeff_c Q') :=
+⟨λ h, by repeat { split }; congr; assumption, λ ⟨ha, hb, hc⟩, eq_of_coeffs_eq ha hb hc ⟩
+
+lemma of_tuple_congr {a a' b b' c c' : ℤ} :
+  of_tuple a b c = of_tuple a' b' c' ↔ a = a' ∧ b = b' ∧ c = c' :=
+iff.trans eq_iff_coeffs_eq (by simp)
+
+end coeff
+
+instance : decidable_eq QF₂ℤ :=
+λ Q Q', decidable_of_decidable_of_iff infer_instance eq_iff_coeffs_eq.symm
+
+section discr
+/-- The traditional definition of the discriminant of a quadratic form -/
+def discr' (Q : QF₂ℤ) : ℤ := coeff_b Q * coeff_b Q - 4 * coeff_a Q * coeff_c Q
+
+@[simp] lemma discr'_of_tuple (a b c : ℤ) : discr' (of_tuple a b c) = b * b - 4 * a * c :=
+by rw [discr', coeff_a_of_tuple, coeff_b_of_tuple, coeff_c_of_tuple]
+
+lemma discr'_eq_discr (Q : QF₂ℤ) : (discr' Q : ℚ) = -4 * Q.val.discr :=
+calc (discr' Q : ℚ) = ↑(coeff_b Q * coeff_b Q - 4 * coeff_a Q * coeff_c Q) : rfl
+                ... = coeff_b Q * coeff_b Q - 4 * coeff_a Q * coeff_c Q : by norm_cast
+                ... = -4 * (coeff_a Q * coeff_c Q - ((coeff_b Q / 2) * (coeff_b Q / 2))) : by ring
+                ... = -4 * (Q.val.to_matrix).det : by simp [det_2x2]
+                ... = -4 * Q.val.discr : rfl
+
+/-- This edition of the discriminant arises from "completing the square". -/
+lemma four_coeff_a_mul_apply_eq (Q : QF₂ℤ) (x y : ℤ) :
+  4 * coeff_a Q * Q x y = (2 * coeff_a Q * x + coeff_b Q * y)^2 - discr' Q * y^2 :=
+by rw [apply_val, discr']; ring
+
 /-
 /-- A primitive quadratic form has no common divisor among its coefficients. -/
 def is_primitive [gcd_domain α] (M : quadratic_form α (n → α)) : Prop :=
 (univ : finset (n × n)).fold gcd (1 : α) (λ ⟨i, j⟩, M i j) = 1
 -/
+end discr
 
+section matrix_action
 instance : has_scalar M₂ℤ QF₂ℤ :=
 ⟨ λ M Q, ⟨ @has_scalar.smul (matrix (fin 2) (fin 2) ℚ) _ _ (λ i j, (M i j : ℚ)) Q.val,
            λ v is_int, Q.is_int _ (λ i,
@@ -332,9 +398,10 @@ by simp [coeff_c]
 @[simp] lemma smul_coeff_b (M : M₂ℤ) (Q : QF₂ℤ) :
   coeff_b (M • Q) = Q (M 0 0 + M 1 0) (M 0 1 + M 1 1) - coeff_a (M • Q) - coeff_c (M • Q) :=
 by simp [coeff_b]
+end matrix_action
 
 -- TODO: better name!
-def QF (d : ℤ) := {Q : QF₂ℤ // Q.val.discr = d}
+def QF (d : ℤ) := {Q : QF₂ℤ // discr' Q = d}
 
 namespace QF
 
@@ -360,7 +427,11 @@ instance SL₂ℤ_to_SL₂ℚ : has_coe SL₂ℤ (special_linear_group (fin 2) �
 by { ext i j, refl }
 
 instance : has_scalar SL₂ℤ (QF d) :=
-⟨λ M Q, ⟨M.1 • Q.1, trans (by { convert discr_invariant_for_SL Q.val.val M }) Q.2⟩⟩
+⟨λ M Q,
+  ⟨ M.1 • Q.1,
+  trans ((@int.cast_inj ℚ _ _ _ _ _).mp
+    (by erw [discr'_eq_discr, discr'_eq_discr, discr_invariant_for_SL Q.1.val M]))
+      Q.2⟩⟩
 
 @[simp] lemma coe_smul (M : SL₂ℤ) (Q : QF d) :
   ↑(M • Q) = @has_scalar.smul (matrix (fin 2) (fin 2) ℤ) (QF₂ℤ) _ (⇑ M) Q := rfl
@@ -420,6 +491,36 @@ begin
     simpa [to_int_vector_eq_zero] using hxy }
 end
 
+lemma pos_def_iff_of_discr_neg (hd : discr' Q < 0) : pos_def Q.val ↔ 0 < coeff_a Q :=
+iff.trans pos_def_val_iff $ begin
+  split; intro h,
+  { apply h 1 0,
+    norm_num },
+  intros x y hxy,
+  by_cases hy : y = 0,
+  { convert mul_pos (mul_self_pos (hxy.resolve_right (not_not_intro hy))) h,
+    simp [apply_val, h, hy] },
+  apply (zero_lt_mul_left h).mp,
+  apply (zero_lt_mul_left (show (0 : ℤ) < 4, by norm_num)).mp,
+  rw [←mul_assoc, four_coeff_a_mul_apply_eq, pow_two, pow_two, sub_eq_add_neg, neg_mul_eq_neg_mul],
+  apply add_pos_of_nonneg_of_pos (mul_self_nonneg (2 * coeff_a Q * x + _)),
+  exact mul_pos (neg_pos.mpr hd) (mul_self_pos hy),
+end
+
+lemma not_pos_def (x y : ℤ) (hxy : x ≠ 0 ∨ y ≠ 0) (hQ : Q x y = 0) :
+  ¬ pos_def Q.val :=
+λ h, ne_of_lt (pos_def_val_iff.mp h x y hxy) hQ.symm
+
+def pos_def_decidable_of_discr_nonpos (hd : discr' Q ≤ 0) : decidable (pos_def Q.val) :=
+if d_eq_0 : discr' Q = 0
+then if a_eq_0 : coeff_a Q = 0
+  then is_false (not_pos_def 1 0 (by norm_num) (by simp [apply_val, a_eq_0]))
+  else have 4 * coeff_a Q * coeff_c Q = coeff_b Q * coeff_b Q := (eq_of_sub_eq_zero d_eq_0).symm,
+    is_false (not_pos_def (-2 * coeff_b Q) (4 * coeff_a Q)
+      (or.inr (by norm_num [a_eq_0]))
+      (by { simp [apply_val, mul_assoc, this], ring }))
+else decidable_of_iff _ (pos_def_iff_of_discr_neg (lt_of_le_of_ne hd d_eq_0)).symm
+
 lemma coeff_a_pos (hpd : pos_def Q.val) : 0 < coeff_a Q :=
 pos_def_val_iff.mp hpd 1 0 (by norm_num)
 
@@ -439,7 +540,7 @@ end is_positive_definite
 /-- A bundled version of `positive definite integer binary quadratic form with discriminant d'. -/
 structure pos_def_QF₂ℤ (d : ℤ) :=
 (form : QF₂ℤ)
-(discr_eq : discr form.val = d)
+(discr_eq : discr' form = d)
 (pos_def : pos_def form.val)
 
 variable {d : ℤ}
@@ -459,10 +560,14 @@ lemma ext : Π (Q Q' : pos_def_QF₂ℤ d), (∀ x y, Q x y = Q' x y) → Q = Q'
 
 @[simp] lemma form_eq_coe (Q : pos_def_QF₂ℤ d) : Q.form = ↑Q := rfl
 
+lemma discr_coe (Q : pos_def_QF₂ℤ d) : discr' Q = d := Q.discr_eq
+
 instance : has_scalar SL₂ℤ (pos_def_QF₂ℤ d) :=
 ⟨ λ M Q,
   ⟨ M.val • Q.form,
-    trans (by { convert discr_invariant_for_SL Q.form.1 M }) Q.discr_eq,
+    trans ((@int.cast_inj ℚ _ _ _ _ _).mp
+            (by erw [discr'_eq_discr, discr'_eq_discr, discr_invariant_for_SL Q.form.val M]))
+          Q.discr_eq,
     pos_def_smul_SL M Q.pos_def ⟩ ⟩
 
 @[simp] lemma coe_fn_coe (Q : pos_def_QF₂ℤ d) : ⇑(Q : QF₂ℤ) = Q := rfl
@@ -477,15 +582,14 @@ instance : mul_action SL₂ℤ (pos_def_QF₂ℤ d) :=
 instance : setoid (pos_def_QF₂ℤ d) :=
 mul_action.orbit_rel SL₂ℤ (pos_def_QF₂ℤ d)
 
-lemma eq_of_coeffs_eq {Q f' : pos_def_QF₂ℤ d} :
-  coeff_a Q = coeff_a f' → coeff_b Q = coeff_b f' → coeff_c Q = coeff_c f' → Q = f' :=
+lemma eq_of_coeffs_eq {Q Q' : pos_def_QF₂ℤ d} :
+  coeff_a Q = coeff_a Q' → coeff_b Q = coeff_b Q' → coeff_c Q = coeff_c Q' → Q = Q' :=
 begin
   intros ha hb hc,
   cases Q,
-  cases f',
+  cases Q',
   congr,
-  rw [←of_tuple_coeff Q_form, ←of_tuple_coeff f'_form],
-  congr; assumption
+  apply eq_of_coeffs_eq; assumption
 end
 
 @[simp] lemma coe_smul (Q : pos_def_QF₂ℤ d) (M : SL₂ℤ) :
@@ -498,28 +602,51 @@ int_bin_quadratic_form.apply_val Q x y
 
 end pos_def_QF₂ℤ
 
-structure is_reduced (Q : pos_def_QF₂ℤ d) : Prop :=
+structure is_reduced (Q : QF₂ℤ) : Prop :=
 (abs_b_le_a : abs (coeff_b Q) ≤ coeff_a Q)
 (a_le_c : coeff_a Q ≤ coeff_c Q)
 (b_nonneg_left : abs (coeff_b Q) = coeff_a Q → 0 ≤ coeff_b Q)
 (b_nonneg_right : coeff_a Q = coeff_c Q → 0 ≤ coeff_b Q)
 
-lemma is_reduced.coeff_a_nonneg {Q : pos_def_QF₂ℤ d} (hr : is_reduced Q) :
+lemma is_reduced_iff (Q : QF₂ℤ) :
+  is_reduced Q ↔ (abs (coeff_b Q) ≤ coeff_a Q ∧
+                  coeff_a Q ≤ coeff_c Q ∧
+                  (abs (coeff_b Q) = coeff_a Q → 0 ≤ coeff_b Q) ∧
+                  (coeff_a Q = coeff_c Q → 0 ≤ coeff_b Q)) :=
+⟨λ ⟨hba, hac, hbl, hbr⟩, ⟨hba, hac, hbl, hbr⟩, λ ⟨hba, hac, hbl, hbr⟩, ⟨hba, hac, hbl, hbr⟩⟩
+
+lemma is_reduced_of_tuple_iff {a b c : ℤ} :
+  is_reduced (of_tuple a b c) ↔ abs b ≤ a ∧ a ≤ c ∧ (abs b = a → 0 ≤ b) ∧ (a = c → 0 ≤ b) :=
+iff.trans (is_reduced_iff _) (by simp)
+
+instance : decidable_pred is_reduced :=
+λ Q, decidable_of_decidable_of_iff infer_instance (is_reduced_iff Q).symm
+
+lemma is_reduced.coeff_a_nonneg {Q : QF₂ℤ} (hr : is_reduced Q) :
   0 ≤ coeff_a Q :=
 le_trans (abs_nonneg _) hr.abs_b_le_a
 
-lemma is_reduced.coeff_c_nonneg {Q : pos_def_QF₂ℤ d} (hr : is_reduced Q) :
+lemma is_reduced.coeff_c_nonneg {Q : QF₂ℤ} (hr : is_reduced Q) :
   0 ≤ coeff_c Q :=
 le_trans hr.coeff_a_nonneg hr.a_le_c
 
-lemma is_reduced.abs_b_le_c {Q : pos_def_QF₂ℤ d} (hr : is_reduced Q) :
+lemma is_reduced.abs_b_le_c {Q : QF₂ℤ} (hr : is_reduced Q) :
   abs (coeff_b Q) ≤ coeff_c Q :=
 le_trans hr.abs_b_le_a hr.a_le_c
 
-lemma is_reduced.b_eq_a_of_c_le_abs_b {Q : pos_def_QF₂ℤ d} (hr : is_reduced Q)
+lemma is_reduced.b_eq_a_of_c_le_abs_b {Q : QF₂ℤ} (hr : is_reduced Q)
   (h : coeff_c Q ≤ abs (coeff_b Q)) : coeff_b Q = coeff_a Q :=
 have abs_b_eq : abs (coeff_b Q) = coeff_a Q := le_antisymm hr.1 (le_trans hr.a_le_c h),
 by simpa [abs_of_nonneg (hr.3 abs_b_eq)] using abs_b_eq
+
+lemma is_reduced.coeff_b_add_coeff_a_nonneg {Q : QF₂ℤ} (hr : is_reduced Q) :
+  0 ≤ coeff_b Q + coeff_a Q :=
+neg_le_iff_add_nonneg.mp (neg_le.mp (abs_le.mp hr.1).1)
+
+lemma is_reduced_iff_of_a_eq_b {Q : QF₂ℤ} (h : coeff_a Q = coeff_b Q) :
+  is_reduced Q ↔ (0 ≤ coeff_a Q ∧ coeff_a Q ≤ coeff_c Q) :=
+⟨ λ hr, ⟨hr.coeff_a_nonneg, hr.a_le_c⟩,
+  λ ⟨ha, hc⟩, ⟨by rwa [←h, abs_of_nonneg ha], hc, λ _, h ▸ ha, λ _, h ▸ ha⟩ ⟩
 
 namespace reduced
 /-! This namespace contains an order on quadratic forms, such that the minimum is a reduced form.
@@ -1053,6 +1180,214 @@ theorem exists_unique_reduced_equiv (Q : pos_def_QF₂ℤ d) :
 let ⟨g, ⟨e, m⟩, u⟩ := exists_unique_min Q in
 ⟨ g, ⟨e, (min_iff_reduced).mp m⟩, λ g' ⟨e', r'⟩, u g' ⟨e', (min_iff_reduced).mpr r'⟩ ⟩
 
-end int_bin_quadratic_form
+lemma coeff_a_bound {Q : QF₂ℤ} (h : is_reduced Q) (hd : discr' Q = d):
+  3 * coeff_a Q * coeff_a Q ≤ -d :=
+have a_nonneg : 0 ≤ coeff_a Q := h.coeff_a_nonneg,
+le_neg.mp $ calc d = coeff_b Q * coeff_b Q - 4 * coeff_a Q * coeff_c Q : hd.symm
+               ... = abs (coeff_b Q) * abs (coeff_b Q) - 4 * coeff_a Q * coeff_c Q
+                   : by rw [abs_mul_abs_self]
+               ... ≤ coeff_a Q * coeff_a Q - 4 * coeff_a Q * coeff_a Q
+                   : sub_le_sub (mul_le_mul h.1 h.1 (abs_nonneg _) a_nonneg)
+                                (mul_le_mul_of_nonneg_left h.2 (by linarith))
+               ... = -(3 * coeff_a Q * coeff_a Q) : by ring
 
-#lint
+lemma reduced_of_coeff_a_bound {Q : QF₂ℤ} (ha : 4 * coeff_a Q * coeff_a Q < -discr' Q)
+  (hab : -coeff_a Q < coeff_b Q) (hba : coeff_b Q ≤ coeff_a Q) : is_reduced Q :=
+have abs_b_le_a : abs (coeff_b Q) ≤ coeff_a Q := abs_le.mpr ⟨le_of_lt hab, hba⟩,
+have a_nonneg : 0 ≤ coeff_a Q := le_trans (abs_nonneg _) abs_b_le_a,
+have a_lt_c : coeff_a Q < coeff_c Q := (mul_lt_mul_left (show 0 < 4 * coeff_a Q, by linarith)).mp $
+  calc 4 * coeff_a Q * coeff_a Q
+      < -(coeff_b Q * coeff_b Q - 4 * coeff_a Q * coeff_c Q) : ha
+  ... = 4 * coeff_a Q * coeff_c Q - coeff_b Q * coeff_b Q : neg_sub _ _
+  ... ≤ 4 * coeff_a Q * coeff_c Q : sub_le_self _ (mul_self_nonneg _),
+⟨ abs_b_le_a,
+  le_of_lt a_lt_c,
+  λ h, ((abs_eq a_nonneg).mp h).elim (λ h, h.symm ▸ a_nonneg) (λ h, absurd h.symm (ne_of_lt hab)),
+  λ h, absurd h (ne_of_lt a_lt_c) ⟩
+
+lemma pos_def_QF₂ℤ.reduced_of_coeff_a_bound {Q : pos_def_QF₂ℤ d} (ha : 4 * coeff_a Q * coeff_a Q < -d)
+  (hab : -coeff_a Q < coeff_b Q) (hba : coeff_b Q ≤ coeff_a Q) : is_reduced Q :=
+reduced_of_coeff_a_bound (Q.discr_coe.symm ▸ ha) hab hba
+
+instance {Q : QF₂ℤ} {d : ℕ} : decidable (discr' Q = -d ∧ pos_def Q.val ∧ is_reduced Q) :=
+if hd : discr' Q = -d
+then if hr : is_reduced Q
+  then @dite _ (@pos_def_decidable_of_discr_nonpos Q (hd.symm ▸ neg_nonpos.mpr (int.coe_nat_nonneg d))) _
+    (λ hpd, is_true (and.intro hd (and.intro hpd hr)))
+    (λ hpd, is_false (λ h, hpd h.2.1))
+  else is_false (λ h, hr h.2.2)
+else is_false (λ h, hd h.1)
+
+def reduced_forms (d : ℕ) : finset QF₂ℤ :=
+((range (nat.sqrt (d / 3) + 1)).bind (λ a,
+  (range (a * 2 + 1)).image (λ b,
+    of_tuple a (b - a) (((b - a) * (b - a) + d) / (4 * a))))).filter
+  (λ Q, discr' Q = -d ∧ pos_def Q.val ∧ is_reduced Q)
+
+lemma mem_reduced_forms_iff {d : ℕ} (Q : QF₂ℤ) :
+  Q ∈ reduced_forms d ↔ discr' Q = -d ∧ pos_def Q.val ∧ is_reduced Q :=
+begin
+  apply iff.trans mem_filter,
+  split,
+  { rintros ⟨_, h⟩, exact h },
+  rintros ⟨hd, hpd, hr⟩,
+  refine ⟨mem_bind.mpr ⟨(coeff_a Q).to_nat, _, _⟩, ⟨hd, hpd, hr⟩⟩,
+  { apply finset.mem_range.mpr (nat.succ_le_succ (nat.le_sqrt.mpr _)),
+    apply (nat.le_div_iff_mul_le' (show 0 < 3, by norm_num)).mpr,
+    rw mul_comm,
+    apply (@nat.cast_le ℤ _ _ _).mp,
+    simpa [int.to_nat_of_nonneg hr.coeff_a_nonneg, mul_assoc] using coeff_a_bound hr hd },
+  refine mem_image.mpr ⟨(coeff_b Q + coeff_a Q).to_nat, _, trans _ (of_tuple_coeff Q)⟩,
+  { apply finset.mem_range.mpr (nat.succ_le_succ _),
+    apply (@nat.cast_le ℤ _ _ _).mp,
+    convert add_le_add_right (abs_le.mp hr.1).2 (coeff_a Q);
+      simp [mul_two, int.to_nat_of_nonneg hr.coeff_b_add_coeff_a_nonneg, int.to_nat_of_nonneg hr.coeff_a_nonneg] },
+  rw [int.to_nat_of_nonneg hr.coeff_b_add_coeff_a_nonneg, int.to_nat_of_nonneg hr.coeff_a_nonneg, add_sub_cancel],
+  congr' 1,
+  { rw [← neg_eq_iff_neg_eq.mp hd.symm, discr', neg_sub, ←add_sub_assoc, add_sub_cancel', mul_comm _ (coeff_c Q)],
+    apply int.mul_div_cancel,
+    suffices : coeff_a Q ≠ 0, by norm_num [this],
+    exact (ne_of_lt (coeff_a_pos hpd)).symm },
+end
+
+def representors (d : ℕ) := { Q : QF₂ℤ // discr' Q = -d ∧ pos_def Q.val ∧ is_reduced Q }
+
+instance {d : ℕ} : fintype (representors d) :=
+fintype.of_finset (reduced_forms d) mem_reduced_forms_iff
+
+/-- Count the reduced quadratic forms `of_tuple a (± b) c`, with `a * c = a_mul_c`. -/
+def number_at (b a_mul_c a : ℕ) : ℕ :=
+if a ∣ a_mul_c
+then if a = b ∨ a * a = a_mul_c ∨ b = 0 then 1 else 2
+else 0
+
+def loop_a : Π (b a_mul_c a : ℕ), ℕ
+| b a_mul_c 0 := 0
+| b a_mul_c a@(a'+1) := if b ≤ a ∧ 2 ≤ a then number_at b a_mul_c a + loop_a b a_mul_c a' else 0
+
+/-- Given `d = b * b - 4 * a * c`, determine `a * c`. -/
+def a_mul_c (d b : ℕ) : ℕ :=
+(b * b + d) / 4
+
+def loop_b : Π (d b : ℕ), ℕ
+| d b@(b'+2) := loop_a b (a_mul_c d b) (nat.sqrt (a_mul_c d b)) + loop_b d b'
+| d b := loop_a b (a_mul_c d b) (nat.sqrt (a_mul_c d b))
+
+def count_u (d : ℕ) : ℕ :=
+nat.sqrt (d / 3)
+
+def count_reduced_forms (d : ℕ) : ℕ :=
+1 + loop_b d (count_u d + (d - count_u d) % 2)
+
+/-- List the reduced quadratic forms `of_tuple a (± b) c`, with `a * c = a_mul_c`. -/
+def forms_such_that (b a_mul_c a : ℕ) : list QF₂ℤ :=
+if a ∣ a_mul_c
+then if a = b ∨ a * a = a_mul_c ∨ b = 0
+  then [of_tuple a b (a_mul_c / a)]
+  else [of_tuple a b (a_mul_c / a), of_tuple a (-b) (a_mul_c / a)]
+else []
+
+lemma reduced_of_mem_forms {b a_mul_c a : ℕ} {Q : QF₂ℤ} (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) :
+  Q ∈ forms_such_that b a_mul_c a → is_reduced Q :=
+begin
+  have : (a : ℤ) ≤ a_mul_c / a,
+  { apply int.le_div_of_mul_le; assumption_mod_cast },
+  have : a ≤ a_mul_c / a,
+  { assumption_mod_cast },
+  unfold forms_such_that,
+  split_ifs with hdiv hone;
+    simp only [list.mem_cons_iff, list.mem_nil_iff, list.mem_singleton],
+  { rintro rfl,
+    apply is_reduced_of_tuple_iff.mpr,
+     norm_cast,
+     use b_le_a,
+     use this,
+     split; intro h; exact nat.zero_le b },
+  { rintros (rfl | rfl); apply is_reduced_of_tuple_iff.mpr,
+    { norm_cast,
+      use b_le_a,
+      use this,
+      split; intro h; exact nat.zero_le b },
+    { rw [abs_neg, le_neg, neg_zero],
+      norm_cast,
+      use b_le_a,
+      use this,
+      split; intro h; exfalso,
+      { exact hone (or.inl h.symm) },
+      { have := nat.div_mul_cancel hdiv,
+        rw [←h] at this,
+        exact hone (or.inr (or.inl this)) } } },
+  rintro ⟨⟩
+end
+
+lemma distrib_and_or {p q r : Prop} : p ∧ (q ∨ r) ↔ (p ∧ q) ∨ (p ∧ r) :=
+⟨ λ ⟨p, qr⟩, qr.elim (λ q, or.inl ⟨p, q⟩) (λ r, or.inr ⟨p, r⟩),
+  λ pq_pr, pq_pr.elim (λ ⟨p, q⟩, ⟨p, or.inl q⟩) (λ ⟨p, r⟩, ⟨p, or.inr r⟩) ⟩
+
+lemma or_distrib_and {p q r : Prop} : (p ∨ q) ∧ r ↔ (p ∧ r) ∨ (q ∧ r) :=
+  ⟨ λ ⟨pq, r⟩, pq.elim (λ p, or.inl ⟨p, r⟩) (λ q, or.inr ⟨q, r⟩),
+  λ pr_qr, pr_qr.elim (λ ⟨p, r⟩, ⟨or.inl p, r⟩) (λ ⟨q, r⟩, ⟨or.inr q, r⟩) ⟩
+
+lemma mem_forms_such_that_iff_of_reduced {b a_mul_c a : ℕ} {a' b' c' : ℤ}
+  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) (hr : is_reduced (of_tuple a' b' c')) :
+  (of_tuple a' b' c' ∈ forms_such_that b a_mul_c a) ↔ (a' = a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
+begin
+  have a_pos' : (0 : ℤ) < a, assumption_mod_cast,
+  have a_nonzero : a ≠ 0 := ne_of_gt a_pos,
+
+  unfold forms_such_that,
+  split_ifs with hdiv hone,
+  { apply iff.trans mem_singleton,
+    apply iff.trans of_tuple_congr,
+    split,
+    { rintro ⟨rfl, rfl, rfl⟩,
+      rw [int.mul_div_cancel' (int.coe_nat_dvd.mpr hdiv), int.coe_nat_abs],
+      finish },
+    { rintro ⟨rfl, hb, hc⟩,
+      use rfl,
+      rw [←hc, ←hb, mul_comm, int.mul_div_cancel],
+      apply and.intro (abs_of_nonneg _).symm rfl,
+      rcases hone with rfl | rfl | b_eq_zero,
+      { exact (is_reduced_of_tuple_iff.mp hr).2.2.1 hb },
+      { apply (is_reduced_of_tuple_iff.mp hr).2.2.2,
+        exact (domain.mul_left_inj (ne_of_gt a_pos')).mp (trans hc (int.coe_nat_mul _ _)).symm },
+      { finish },
+      exact_mod_cast (ne_of_gt a_pos) } },
+  { apply iff.trans (list.mem_cons_iff _ _ _),
+    simp only [list.mem_singleton, of_tuple_congr, ←distrib_and_or, ←or_distrib_and],
+    split; rintros ⟨rfl, hb, hc⟩; use rfl,
+    { rw hc,
+      refine and.intro _ (int.mul_div_cancel' _);
+        try { assumption_mod_cast },
+      rcases hb with rfl | rfl,
+      { rw int.coe_nat_abs },
+      { rw [abs_neg, int.coe_nat_abs] } },
+    { rw [← hc, ←hb, mul_comm],
+      refine and.intro _ (int.mul_div_cancel _ _).symm;
+        try { assumption_mod_cast },
+      by_cases b_neg : b' < 0,
+      { simp [abs_of_neg b_neg] },
+      { simp [abs_of_nonneg (le_of_not_gt b_neg)] } } },
+  { split; intro h,
+    { cases h },
+    rcases h with ⟨ha, hb, hc⟩,
+    exfalso,
+    apply hdiv,
+    exact_mod_cast (show (a : ℤ) ∣ a_mul_c, from ⟨c', ha ▸ hc.symm⟩) },
+end
+
+lemma mem_forms_such_that_iff {b a_mul_c a : ℕ} {a' b' c' : ℤ}
+  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) :
+  (of_tuple a' b' c' ∈ forms_such_that b a_mul_c a) ↔ (is_reduced (of_tuple a' b' c') ∧ a' = a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
+⟨ λ h, have hr : _ := (reduced_of_mem_forms a_pos b_le_a a_le_c h),
+    and.intro hr ((mem_forms_such_that_iff_of_reduced a_pos b_le_a a_le_c hr).mp h),
+  λ ⟨hr, ha, hb, hc⟩, (mem_forms_such_that_iff_of_reduced a_pos b_le_a a_le_c hr).mpr ⟨ha, hb, hc⟩ ⟩
+
+lemma length_forms_such_that (b a_mul_c a : ℕ) :
+  (forms_such_that b a_mul_c a).length = number_at b a_mul_c a :=
+by { unfold forms_such_that number_at, split_ifs; refl }
+
+theorem count_reduced_forms_correct (d : ℕ) : count_reduced_forms d = fintype.card (representors d) :=
+_
+
+end int_bin_quadratic_form
