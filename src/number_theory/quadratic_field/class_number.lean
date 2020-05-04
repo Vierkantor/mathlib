@@ -188,7 +188,6 @@ rat.eq_iff_mul_eq_mul.mpr (by simp [←apply_eq_num_val])
 begin
   rw [apply_eq_num_val, apply_eq_num_val, ←map_neg],
   congr,
-  apply congr_arg Q.val,
   convert trans (neg_insert (-x : ℚ) ![-y]) _; simp -- TODO: fix instance diamnond preventing us from just using `simp` here
 end
 
@@ -281,7 +280,7 @@ by { ext n, fin_cases n; refl }
 begin
   ext x y,
   rw apply_eq_num_val,
-  congr,
+  congr' 1,
   rw [←to_matrix_right_inverse Q.val, of_tuple_val],
   apply congr_fun,
   congr,
