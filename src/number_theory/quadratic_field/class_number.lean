@@ -654,8 +654,20 @@ lemma is_reduced.of_tuple_abs_b_le_a {a b c : ℤ} (hr : is_reduced (of_tuple a 
 by simpa using hr.abs_b_le_a
 
 lemma is_reduced.of_tuple_a_le_c {a b c : ℤ} (hr : is_reduced (of_tuple a b c)) :
-a ≤ c :=
+  a ≤ c :=
 by simpa using hr.a_le_c
+
+lemma is_reduced.a_ne_b_of_b_neg {Q : QF₂ℤ} (hr : is_reduced Q) (h : coeff_b Q < 0) :
+  coeff_a Q ≠ coeff_b Q :=
+λ hab, not_le_of_gt h (hab ▸ hr.coeff_a_nonneg)
+
+lemma is_reduced.a_ne_neg_b_of_b_neg {Q : QF₂ℤ} (hr : is_reduced Q) (h : coeff_b Q < 0) :
+  coeff_a Q ≠ - coeff_b Q :=
+λ hab, not_le_of_gt h (hab ▸ hr.b_nonneg_left (trans (abs_of_neg h) hab.symm))
+
+lemma is_reduced.a_ne_c_of_b_neg {Q : QF₂ℤ} (hr : is_reduced Q) (h : coeff_b Q < 0) :
+  coeff_a Q ≠ coeff_c Q :=
+λ hac, not_le_of_gt h (hr.b_nonneg_right hac)
 
 namespace reduced
 /-! This namespace contains an order on quadratic forms, such that the minimum is a reduced form.
@@ -1312,48 +1324,97 @@ begin
     simp
 end
 
+lemma coeff_b_of_mem_forms_at_of_a_eq_b {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (h : Q ∈ forms_at b a_mul_c a) (a_eq_b : a = b) : coeff_b Q = b :=
+begin
+  unfold forms_at at h,
+  simp only [if_true, eq_self_iff_true, true_or, a_eq_b] at h,
+  split_ifs at h,
+  { simpa using congr_arg coeff_b (list.mem_singleton.mp h) },
+  { cases h }
+end
+
+lemma coeff_b_of_mem_forms_at_of_a_mul_a_eq {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+(h : Q ∈ forms_at b a_mul_c a) (a_eq_c : a * a = a_mul_c) : coeff_b Q = b :=
+begin
+  unfold forms_at at h,
+  simp only [if_true, eq_self_iff_true, true_or, or_true, a_eq_c] at h,
+  split_ifs at h,
+  { simpa using congr_arg coeff_b (list.mem_singleton.mp h) },
+  { cases h }
+end
+
 lemma coeff_c_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
   (h : Q ∈ forms_at b a_mul_c a) : coeff_c Q = a_mul_c / a :=
 begin
   unfold forms_at at h,
-    split_ifs at h;
+  split_ifs at h;
     simp only [list.mem_cons_iff, list.mem_nil_iff, list.mem_singleton] at h;
     try { cases h };
     apply trans (congr_arg coeff_c h);
     simp
 end
 
-lemma reduced_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ} (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) :
-  Q ∈ forms_at b a_mul_c a → is_reduced Q :=
+lemma a_dvd_a_mul_c_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (h : Q ∈ forms_at b a_mul_c a) : a ∣ a_mul_c :=
 begin
-  have : (a : ℤ) ≤ a_mul_c / a,
-  { apply int.le_div_of_mul_le; assumption_mod_cast },
-  have : a ≤ a_mul_c / a,
-  { assumption_mod_cast },
+  unfold forms_at at h,
+  split_ifs at h; tidy
+end
+
+lemma coeff_a_mul_coeff_c_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (h : Q ∈ forms_at b a_mul_c a) : coeff_a Q * coeff_c Q = a_mul_c :=
+by { rw [coeff_a_of_mem_forms_at h, coeff_c_of_mem_forms_at h],
+     exact_mod_cast nat.mul_div_cancel' (a_dvd_a_mul_c_of_mem_forms_at h) }
+
+lemma coeff_b_of_mem_forms_at_of_a_mul_c_div_a_eq {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (h : Q ∈ forms_at b a_mul_c a) (a_eq_c : a_mul_c / a = a) : coeff_b Q = b :=
+coeff_b_of_mem_forms_at_of_a_mul_a_eq h (trans
+  (congr_arg ((*) a) a_eq_c.symm)
+  (nat.mul_div_cancel' (by exact_mod_cast a_dvd_a_mul_c_of_mem_forms_at h)))
+
+lemma mem_forms_at_pos {b a_mul_c a : ℕ} (h : a ∣ a_mul_c) :
+  of_tuple a b (a_mul_c / a) ∈ forms_at b a_mul_c a :=
+begin
   unfold forms_at,
-  split_ifs with hdiv hone;
-    simp only [list.mem_cons_iff, list.mem_nil_iff, list.mem_singleton],
-  { rintro rfl,
-    apply is_reduced_of_tuple_iff.mpr,
-     norm_cast,
-     use b_le_a,
-     use this,
-     split; intro h; exact nat.zero_le b },
-  { rintros (rfl | rfl); apply is_reduced_of_tuple_iff.mpr,
-    { norm_cast,
-      use b_le_a,
-      use this,
-      split; intro h; exact nat.zero_le b },
-    { rw [abs_neg, le_neg, neg_zero],
-      norm_cast,
-      use b_le_a,
-      use this,
-      split; intro h; exfalso,
-      { exact hone (or.inl h.symm) },
-      { have := nat.div_mul_cancel hdiv,
-        rw [←h] at this,
-        exact hone (or.inr (or.inl this)) } } },
-  rintro ⟨⟩
+  split_ifs; simp [if_pos h]
+end
+
+lemma mem_forms_at_pos' {b a_mul_c a : ℕ} {a' b' c' : ℤ} (h : a ∣ a_mul_c)
+  (ha : a' = a) (hb : b' = b) (hc : c' = a_mul_c / a) :
+  of_tuple a' b' c' ∈ forms_at b a_mul_c a :=
+by { rw [ha, hb, hc], exact mem_forms_at_pos h }
+
+lemma mem_forms_at_neg {b a_mul_c a : ℕ} (hc : a ∣ a_mul_c)
+  (a_ne_b : a ≠ b) (a_le_c : a * a ≠ a_mul_c) (b_pos : b ≠ 0) :
+  of_tuple a (-b) (a_mul_c / a) ∈ forms_at b a_mul_c a :=
+begin
+  unfold forms_at,
+  have : ¬ (a = b ∨ a * a = a_mul_c ∨ b = 0) := by tidy,
+  simp [hc, this]
+end
+
+lemma mem_forms_at_neg' {b a_mul_c a : ℕ} {a' b' c' : ℤ} (hc : a ∣ a_mul_c)
+  (a_ne_b : a ≠ b) (a_le_c : a * a ≠ a_mul_c) (b_pos : b ≠ 0)
+  (ha : a' = a) (hb : b' = -b) (hc : c' = a_mul_c / a) :
+  of_tuple a' b' c' ∈ forms_at b a_mul_c a :=
+by { rw [ha, hb, hc], apply mem_forms_at_neg; assumption }
+
+lemma reduced_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c)
+  (hQ : Q ∈ forms_at b a_mul_c a) : is_reduced Q :=
+begin
+  split;
+    simp only [coeff_a_of_mem_forms_at hQ, coeff_b_of_mem_forms_at hQ, coeff_c_of_mem_forms_at hQ],
+  { exact int.coe_nat_le.mpr b_le_a },
+  { apply int.le_div_of_mul_le; assumption_mod_cast },
+  { intro h,
+    convert int.coe_nat_nonneg b,
+    exact coeff_b_of_mem_forms_at_of_a_eq_b hQ (int.coe_nat_inj h).symm },
+  { intro h,
+    convert int.coe_nat_nonneg b,
+    apply coeff_b_of_mem_forms_at_of_a_mul_c_div_a_eq hQ,
+    exact_mod_cast h.symm },
 end
 
 lemma distrib_and_or {p q r : Prop} : p ∧ (q ∨ r) ↔ (p ∧ q) ∨ (p ∧ r) :=
@@ -1368,48 +1429,25 @@ lemma mem_forms_at_iff_of_reduced {b a_mul_c a : ℕ} {a' b' c' : ℤ}
   (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) (hr : is_reduced (of_tuple a' b' c')) :
   (of_tuple a' b' c' ∈ forms_at b a_mul_c a) ↔ (a' = a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
 begin
-  have a_pos' : (0 : ℤ) < a, assumption_mod_cast,
-  have a_nonzero : a ≠ 0 := ne_of_gt a_pos,
-
-  unfold forms_at,
-  split_ifs with hdiv hone,
-  { apply iff.trans mem_singleton,
-    apply iff.trans of_tuple_congr,
-    split,
-    { rintro ⟨rfl, rfl, rfl⟩,
-      rw [int.mul_div_cancel' (int.coe_nat_dvd.mpr hdiv), int.coe_nat_abs],
-      finish },
-    { rintro ⟨rfl, hb, hc⟩,
-      use rfl,
-      rw [←hc, ←hb, mul_comm, int.mul_div_cancel],
-      apply and.intro (abs_of_nonneg _).symm rfl,
-      rcases hone with rfl | rfl | b_eq_zero,
-      { exact (is_reduced_of_tuple_iff.mp hr).2.2.1 hb },
-      { apply (is_reduced_of_tuple_iff.mp hr).2.2.2,
-        exact (domain.mul_left_inj (ne_of_gt a_pos')).mp (trans hc (int.coe_nat_mul _ _)).symm },
-      { finish },
-      exact_mod_cast (ne_of_gt a_pos) } },
-  { apply iff.trans (list.mem_cons_iff _ _ _),
-    simp only [list.mem_singleton, of_tuple_congr, ←distrib_and_or, ←or_distrib_and],
-    split; rintros ⟨rfl, hb, hc⟩; use rfl,
-    { rw hc,
-      refine and.intro _ (int.mul_div_cancel' _);
-        try { assumption_mod_cast },
-      rcases hb with rfl | rfl,
-      { rw int.coe_nat_abs },
-      { rw [abs_neg, int.coe_nat_abs] } },
-    { rw [← hc, ←hb, mul_comm],
-      refine and.intro _ (int.mul_div_cancel _ _).symm;
-        try { assumption_mod_cast },
-      by_cases b_neg : b' < 0,
-      { simp [abs_of_neg b_neg] },
-      { simp [abs_of_nonneg (le_of_not_gt b_neg)] } } },
-  { split; intro h,
-    { cases h },
-    rcases h with ⟨ha, hb, hc⟩,
-    exfalso,
-    apply hdiv,
-    exact_mod_cast (show (a : ℤ) ∣ a_mul_c, from ⟨c', ha ▸ hc.symm⟩) },
+  split,
+  { intro h,
+    refine ⟨_, _, _⟩,
+    { simpa using coeff_a_of_mem_forms_at h },
+    { simpa using coeff_b_of_mem_forms_at h },
+    { simpa using coeff_a_mul_coeff_c_of_mem_forms_at h } },
+  rintros ⟨rfl, hb, hc⟩,
+  have a'_pos : (0 : ℤ) < a := int.coe_nat_lt.mpr a_pos,
+  have c'_eq : c' = a_mul_c / a := by rw [←hc, mul_comm, int.mul_div_cancel _ (ne_of_gt a'_pos)],
+  by_cases hb' : b' < 0,
+  { rw [abs_of_neg hb', neg_eq_iff_neg_eq] at hb,
+    rw [←hb] at *,
+    have b_nonzero : b ≠ 0 := ne_of_gt (int.coe_nat_le.mp (neg_lt_zero.mp hb')),
+    rw c'_eq at *,
+    refine mem_forms_at_neg' (int.coe_nat_dvd.mp ⟨_, hc.symm⟩) _ _ b_nonzero rfl rfl rfl,
+    { simpa [hb'] using hr.a_ne_neg_b_of_b_neg },
+    { intro h, convert hr.a_ne_c_of_b_neg _ _; simp [hb', ←h, int.mul_div_cancel _ (ne_of_gt a'_pos)] } },
+  { rw [abs_of_nonneg (le_of_not_gt hb')] at hb,
+    apply mem_forms_at_pos' (int.coe_nat_dvd.mp ⟨_, hc.symm⟩) rfl hb c'_eq }
 end
 
 lemma mem_forms_at_iff {b a_mul_c a : ℕ} {a' b' c' : ℤ}
