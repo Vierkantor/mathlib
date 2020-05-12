@@ -755,9 +755,9 @@ instance : has_lt (pos_def_QF₂ℤ d) :=
 def orbit_embedding (Q : pos_def_QF₂ℤ d) :
   order_embedding (subrel (<) (mul_action.orbit SL₂ℤ Q)) ((<) : _ → lex ℕ (lex ℕ (lex (fin 3) ℕ)) → Prop) :=
 { to_fun := λ Q, key Q.1,
-  inj := λ ⟨g, hg⟩ ⟨g', hg'⟩ h,
+  inj' := λ ⟨g, hg⟩ ⟨g', hg'⟩ h,
     by { congr, exact key_injective h },
-  ord := λ _ _, iff.rfl }
+  ord' := λ _ _, iff.rfl }
 
 /-- The order on quadratic forms is well-founded on these orbits. -/
 instance (Q : pos_def_QF₂ℤ d) : is_well_order _ (subrel (<) (mul_action.orbit SL₂ℤ Q)) :=
@@ -1303,6 +1303,16 @@ then if a = b ∨ a * a = a_mul_c ∨ b = 0
   else [of_tuple a b (a_mul_c / a), of_tuple a (-b) (a_mul_c / a)]
 else []
 
+lemma nat.div_add {b : ℕ} (a c : ℕ) (h : 0 < b) : a / b + c = (a + b * c) / b :=
+by simp [nat.add_div h, nat.mul_div_right _ h, not_le_of_gt (nat.mod_lt _ h)]
+
+@[simp] lemma a_mul_c_zero {d : ℕ} : a_mul_c d 0 = d / 4 := by simp [a_mul_c]
+@[simp] lemma a_mul_c_one {d : ℕ} : a_mul_c d 1 = (d + 1) / 4 := by simp [a_mul_c]
+@[simp] lemma a_mul_c_add_two {d b : ℕ} : a_mul_c d (b + 2) = (d + b * b) / 4 + b + 1 :=
+calc a_mul_c d (b + 2) = (d + (b + 2) * (b + 2)) / 4 : rfl
+                   ... = ((d + b * b) + 4 * (b + 1)) / 4 : by ring
+                   ... = (d + b * b) / 4 + (b + 1) : (nat.div_add (d + b * b) (b + 1) (by norm_num)).symm
+
 lemma coeff_a_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
   (h : Q ∈ forms_at b a_mul_c a) : coeff_a Q = a :=
 begin
@@ -1380,10 +1390,10 @@ begin
   split_ifs; simp [if_pos h]
 end
 
-lemma mem_forms_at_pos' {b a_mul_c a : ℕ} {a' b' c' : ℤ} (h : a ∣ a_mul_c)
-  (ha : a' = a) (hb : b' = b) (hc : c' = a_mul_c / a) :
-  of_tuple a' b' c' ∈ forms_at b a_mul_c a :=
-by { rw [ha, hb, hc], exact mem_forms_at_pos h }
+lemma mem_forms_at_pos' {b a_mul_c a : ℕ} {Q : QF₂ℤ} (h : a ∣ a_mul_c)
+  (ha : coeff_a Q = a) (hb : coeff_b Q = b) (hc : coeff_c Q = a_mul_c / a) :
+  Q ∈ forms_at b a_mul_c a :=
+by { rw [←of_tuple_coeff Q, ha, hb, hc], exact mem_forms_at_pos h }
 
 lemma mem_forms_at_neg {b a_mul_c a : ℕ} (hc : a ∣ a_mul_c)
   (a_ne_b : a ≠ b) (a_le_c : a * a ≠ a_mul_c) (b_pos : b ≠ 0) :
@@ -1394,11 +1404,11 @@ begin
   simp [hc, this]
 end
 
-lemma mem_forms_at_neg' {b a_mul_c a : ℕ} {a' b' c' : ℤ} (hc : a ∣ a_mul_c)
-  (a_ne_b : a ≠ b) (a_le_c : a * a ≠ a_mul_c) (b_pos : b ≠ 0)
-  (ha : a' = a) (hb : b' = -b) (hc : c' = a_mul_c / a) :
-  of_tuple a' b' c' ∈ forms_at b a_mul_c a :=
-by { rw [ha, hb, hc], apply mem_forms_at_neg; assumption }
+lemma mem_forms_at_neg' {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (hc : a ∣ a_mul_c) (a_ne_b : a ≠ b) (a_le_c : a * a ≠ a_mul_c) (b_pos : b ≠ 0)
+  (ha : coeff_a Q = a) (hb : coeff_b Q = -b) (hc : coeff_c Q = a_mul_c / a) :
+  Q ∈ forms_at b a_mul_c a :=
+by { rw [←of_tuple_coeff Q, ha, hb, hc], apply mem_forms_at_neg; assumption }
 
 lemma reduced_of_mem_forms_at {b a_mul_c a : ℕ} {Q : QF₂ℤ}
   (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c)
@@ -1425,37 +1435,33 @@ lemma or_distrib_and {p q r : Prop} : (p ∨ q) ∧ r ↔ (p ∧ r) ∨ (q ∧ r
   ⟨ λ ⟨pq, r⟩, pq.elim (λ p, or.inl ⟨p, r⟩) (λ q, or.inr ⟨q, r⟩),
   λ pr_qr, pr_qr.elim (λ ⟨p, r⟩, ⟨or.inl p, r⟩) (λ ⟨q, r⟩, ⟨or.inr q, r⟩) ⟩
 
-lemma mem_forms_at_iff_of_reduced {b a_mul_c a : ℕ} {a' b' c' : ℤ}
-  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) (hr : is_reduced (of_tuple a' b' c')) :
-  (of_tuple a' b' c' ∈ forms_at b a_mul_c a) ↔ (a' = a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
+lemma mem_forms_at_iff {b a_mul_c a : ℕ} {Q : QF₂ℤ}
+  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) :
+  (Q ∈ forms_at b a_mul_c a) ↔
+    (is_reduced Q ∧ coeff_a Q = a ∧ abs (coeff_b Q) = b ∧ coeff_a Q * coeff_c Q = a_mul_c) :=
 begin
   split,
   { intro h,
-    refine ⟨_, _, _⟩,
+    refine ⟨reduced_of_mem_forms_at a_pos b_le_a a_le_c h, _, _, _⟩,
     { simpa using coeff_a_of_mem_forms_at h },
     { simpa using coeff_b_of_mem_forms_at h },
     { simpa using coeff_a_mul_coeff_c_of_mem_forms_at h } },
-  rintros ⟨rfl, hb, hc⟩,
-  have a'_pos : (0 : ℤ) < a := int.coe_nat_lt.mpr a_pos,
-  have c'_eq : c' = a_mul_c / a := by rw [←hc, mul_comm, int.mul_div_cancel _ (ne_of_gt a'_pos)],
-  by_cases hb' : b' < 0,
-  { rw [abs_of_neg hb', neg_eq_iff_neg_eq] at hb,
-    rw [←hb] at *,
-    have b_nonzero : b ≠ 0 := ne_of_gt (int.coe_nat_le.mp (neg_lt_zero.mp hb')),
-    rw c'_eq at *,
-    refine mem_forms_at_neg' (int.coe_nat_dvd.mp ⟨_, hc.symm⟩) _ _ b_nonzero rfl rfl rfl,
-    { simpa [hb'] using hr.a_ne_neg_b_of_b_neg },
-    { intro h, convert hr.a_ne_c_of_b_neg _ _; simp [hb', ←h, int.mul_div_cancel _ (ne_of_gt a'_pos)] } },
-  { rw [abs_of_nonneg (le_of_not_gt hb')] at hb,
-    apply mem_forms_at_pos' (int.coe_nat_dvd.mp ⟨_, hc.symm⟩) rfl hb c'_eq }
+  rintros ⟨hr, ha, hb, hc⟩,
+  have a'_pos : (0 : ℤ) < coeff_a Q := ha.symm ▸ int.coe_nat_lt.mpr a_pos,
+  have c'_eq : coeff_c Q = a_mul_c / a :=
+    by rw [←hc, ha, mul_comm, int.mul_div_cancel _ (ne_of_gt (int.coe_nat_lt.mpr a_pos))],
+  have a_dvd_a_mul_c : a ∣ a_mul_c := int.coe_nat_dvd.mp ⟨a_mul_c / a, (trans hc.symm (by rw [c'_eq, ha]))⟩,
+  by_cases hb' : coeff_b Q < 0,
+  { have hb : coeff_b Q = -b := (neg_eq_iff_neg_eq.mp (trans (abs_of_neg hb').symm hb)).symm,
+    have b_nonzero : b ≠ 0 := ne_of_gt (int.coe_nat_lt.mp (neg_lt_zero.mp (hb ▸ hb'))),
+    refine mem_forms_at_neg' a_dvd_a_mul_c _ _ b_nonzero ha hb c'_eq,
+    { simpa [ha, hb] using hr.a_ne_neg_b_of_b_neg hb' },
+    { intro h,
+      apply hr.a_ne_c_of_b_neg hb' ((domain.mul_left_inj (ne_of_gt a'_pos)).mp _),
+      convert congr_arg coe h; simp [ha, hc] } },
+  { rw abs_of_nonneg (le_of_not_gt hb') at hb,
+    refine mem_forms_at_pos' a_dvd_a_mul_c ha hb c'_eq }
 end
-
-lemma mem_forms_at_iff {b a_mul_c a : ℕ} {a' b' c' : ℤ}
-  (a_pos : 0 < a) (b_le_a : b ≤ a) (a_le_c : a * a ≤ a_mul_c) :
-  (of_tuple a' b' c' ∈ forms_at b a_mul_c a) ↔ (is_reduced (of_tuple a' b' c') ∧ a' = a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
-⟨ λ h, have hr : _ := (reduced_of_mem_forms_at a_pos b_le_a a_le_c h),
-    and.intro hr ((mem_forms_at_iff_of_reduced a_pos b_le_a a_le_c hr).mp h),
-  λ ⟨hr, ha, hb, hc⟩, (mem_forms_at_iff_of_reduced a_pos b_le_a a_le_c hr).mpr ⟨ha, hb, hc⟩ ⟩
 
 lemma nodup_forms_at (b a_mul_c a : ℕ) : list.nodup (forms_at b a_mul_c a) :=
 begin
@@ -1504,39 +1510,27 @@ begin
   { cases h }
 end
 
-lemma mem_forms_a_iff {b a_mul_c a : ℕ} {a' b' c' : ℤ} (a_le_c : a * a ≤ a_mul_c) :
-  (of_tuple a' b' c' ∈ forms_a b a_mul_c a) ↔ (is_reduced (of_tuple a' b' c') ∧ 0 < a' ∧ a' ≤ a ∧ abs b' = b ∧ a' * c' = a_mul_c) :=
+lemma mem_forms_a_iff {b a_mul_c a : ℕ} {Q : QF₂ℤ} (a_le_c : a * a ≤ a_mul_c) :
+  (Q ∈ forms_a b a_mul_c a) ↔ (is_reduced Q ∧ 0 < coeff_a Q ∧ coeff_a Q ≤ a ∧ abs (coeff_b Q) = b ∧ coeff_a Q * coeff_c Q = a_mul_c) :=
 begin
   induction a; unfold forms_a,
-  { split,
-    { rintros ⟨⟩ },
-    rintros ⟨hr, ha', ha, hb, hc⟩,
-    have : ¬(0 < a') := not_lt_of_ge ha,
-    contradiction },
+  { tidy, linarith },
   split_ifs with hba,
-  { apply iff.trans list.mem_append,
-    have mem_at := mem_forms_at_iff (nat.zero_lt_succ _) hba a_le_c,
+  { have mem_at := @mem_forms_at_iff _ _ _ Q (nat.zero_lt_succ _) hba a_le_c,
     have mem_a := a_ih (le_trans (nat.mul_self_le_mul_self (nat.le_succ _)) a_le_c),
-    split,
-    { rintros (h | h),
-      { obtain ⟨hr, rfl, hb', hc'⟩ := mem_at.mp h,
-        norm_cast,
-        exact ⟨hr, nat.zero_lt_succ _, le_refl _, hb', hc'⟩ },
-      obtain ⟨hr, ha', ha, hb', hc'⟩ := mem_a.mp h,
-      refine ⟨hr, ha', le_trans ha (by exact_mod_cast (nat.le_succ _)), hb', hc'⟩ },
-    { rintros ⟨hr, ha', ha, hb', hc'⟩,
-      by_cases a' = a_n.succ,
-      { exact or.inl (mem_at.mpr ⟨hr, h, hb', hc'⟩) },
-      { have : a' < nat.succ a_n := lt_of_le_of_ne ha h,
-        exact or.inr (mem_a.mpr ⟨hr, ha', int.lt_add_one_iff.mp (by exact_mod_cast this), hb', hc'⟩) } } },
-  { split,
-    { rintros ⟨⟩ },
-    rintros ⟨hr, ha', ha, hb, hc⟩,
-    exfalso,
-    refine hba (int.coe_nat_le.mp _),
-    rw ←hb,
-    apply le_trans _ ha,
-    simpa using hr.abs_b_le_a  }
+    simp only [list.mem_append, mem_at, mem_a, ←distrib_and_or],
+    split; rintro ⟨hr, h⟩; use hr,
+    { rcases h with ⟨ha', hb', hc'⟩ | ⟨a'_pos, ha', hb', hc'⟩,
+      { exact ⟨ha'.symm ▸ int.coe_nat_lt.mpr (nat.zero_lt_succ a_n), le_of_eq ha', hb', hc'⟩ },
+      refine ⟨a'_pos, le_trans ha' (by exact_mod_cast (nat.le_succ _)), hb', hc'⟩ },
+    { rcases h with ⟨a_pos, ha', hb', hc'⟩,
+      by_cases coeff_a Q = a_n.succ,
+      { exact or.inl ⟨h, hb', hc'⟩ },
+      { have : coeff_a Q < nat.succ a_n := lt_of_le_of_ne ha' h,
+        exact or.inr ⟨a_pos, int.lt_add_one_iff.mp (by exact_mod_cast this), hb', hc'⟩ } } },
+  { simp only [list.mem_nil_iff, false_iff, int.coe_nat_succ],
+    rintro ⟨hr, a_pos, ha', hb', hc'⟩,
+    linarith [hr.abs_b_le_a] },
 end
 
 lemma nodup_forms_a (b a_mul_c a : ℕ) : list.nodup (forms_a b a_mul_c a) :=
@@ -1554,7 +1548,8 @@ end
 
 lemma length_forms_a : Π (b a_mul_c a : ℕ), (forms_a b a_mul_c a).length = loop_a b a_mul_c a
 | b a_mul_c 0 := rfl
-| b a_mul_c a@(a'+1) := by { unfold forms_a loop_a, split_ifs; simp [length_forms_at, length_forms_a b a_mul_c a'] }
+| b a_mul_c a@(a'+1) :=
+by { unfold forms_a loop_a, split_ifs; simp [length_forms_at, length_forms_a b a_mul_c a'] }
 
 /-- List the forms of determinant `-d` with given value for `abs b` -/
 def forms_b : Π (d b : ℕ), list QF₂ℤ
@@ -1579,6 +1574,9 @@ begin
   apply iff.trans nat.le_sqrt,
   norm_cast
 end
+
+lemma int.coe_nat_sqrt {n : ℕ} : (nat.sqrt n : ℤ) = int.sqrt n :=
+rfl
 
 @[simp] lemma nat.dvd_self_mul_add {a b c : ℕ} : a ∣ a * b + c ↔ a ∣ c :=
 if a_zero : a = 0 then by rw [a_zero, zero_mul, zero_add]
@@ -1609,93 +1607,90 @@ lemma coeff_b_of_mem_forms_b : Π {d b : ℕ} {Q : QF₂ℤ}, Q ∈ forms_b d b 
   (λ hQ, le_of_eq (coeff_b_of_mem_forms_a hQ))
   (λ hQ, le_trans (coeff_b_of_mem_forms_b hQ) (int.coe_nat_le.mpr (nat.le.intro rfl)))
 
-lemma mem_forms_b : Π {d b : ℕ} (hd : (4 : ℤ) ∣ d + b * b) {a' b' c' : ℤ},
-  (of_tuple a' b' c' ∈ forms_b d b) ↔ (is_reduced (of_tuple a' b' c') ∧ 0 < a' ∧ abs b' ≤ b ∧ b' * b' - 4 * a' * c' = -d)
-| d 0 hd a' b' c' :=
-  have four_d_div_four : 4 * ((d : ℤ) / 4) = d := int.mul_div_cancel' (by simpa using hd),
-  iff.trans (mem_forms_a_iff (nat.sqrt_le _))
-  ⟨ λ ⟨hr, ha', ha, hb, hc⟩, ⟨hr, ha', le_of_eq hb, by simp [abs_eq_zero.mp hb, mul_assoc, hc, a_mul_c, four_d_div_four]⟩,
-    λ ⟨hr, ha, hb, hc⟩,
-      have b'_eq_zero : b' = 0 := abs_eq_zero.mp (le_antisymm hb (abs_nonneg _)),
-      have a'c'_eq : 4 * a' * c' = d := by simpa [b'_eq_zero] using hc,
-      have a_mul_c_eq : (a_mul_c d 0 : ℤ) = a' * c',
-      by { simp [a_mul_c, ←a'c'_eq, mul_assoc, int.mul_div_cancel_left _ (show (4 : ℤ) ≠ 0, by norm_num)] },
-      ⟨hr, ha, show a' ≤ int.sqrt (a_mul_c d 0), by { convert int.le_sqrt_of_mul_self_le ((mul_le_mul_left ha).mpr hr.of_tuple_a_le_c) }, abs_eq_zero.mpr b'_eq_zero, a_mul_c_eq.symm ⟩ ⟩
-| d 1 hd a' b' c' :=
-  have this : 4 * ((d + 1 : ℤ) / 4) = d + 1 := int.mul_div_cancel' (by simpa using hd),
-  iff.trans (mem_forms_a_iff (nat.sqrt_le _))
-  ⟨ λ ⟨hr, ha', ha, hb, hc⟩,
-      have b'_mul_b'_eq_one : b' * b' = 1 := by rw [←abs_mul_self b', abs_mul, hb, int.coe_nat_one, mul_one],
-      ⟨hr, ha', le_of_eq hb, by {simp [mul_assoc, hc, a_mul_c, this, b'_mul_b'_eq_one, sub_eq_add_neg]}⟩,
-    λ ⟨hr, ha, hb, hc⟩,
-      if b'_zero: b' = 0
-      then begin
-        exfalso,
-        apply @one_ne_zero ℤ,
-        cases hd with d_div_4 hd,
-        suffices : (- -(4 * a' * c') + ↑1 * ↑1) % 4 = (4 * d_div_4) % 4,
-        { convert this;
-            try { rw [←int.mod_add_mod, mul_assoc] };
-            simp,
-          norm_num },
-        congr' 1,
-        convert hd,
-        simp [eq_neg_of_eq_neg hc, b'_zero]
-      end
-      else
-        have abs_b_eq_one : abs b' = 1 := le_antisymm hb (abs_pos_iff.mpr b'_zero),
-        have b_mul_b_eq_one : b' * b' = 1 := by rw [← abs_mul_self, abs_mul, abs_b_eq_one, mul_one],
-        have a_mul_c_eq : (a_mul_c d 1 : ℤ) = a' * c' :=
-        by { simp [a_mul_c, ← trans (congr_arg _ hc) (neg_neg (d : ℤ)), b_mul_b_eq_one, mul_assoc, int.mul_div_cancel_left _ (show (4 : ℤ) ≠ 0, by norm_num)] },
-        ⟨hr, ha, show a' ≤ int.sqrt ↑(a_mul_c d 1), by { convert int.le_sqrt_of_mul_self_le ((mul_le_mul_left ha).mpr hr.of_tuple_a_le_c) }, abs_b_eq_one, a_mul_c_eq.symm⟩ ⟩
-| d b@(b_n + 2) hd a' b' c' := begin
-  apply iff.trans list.mem_append,
-  rw mem_forms_a_iff (nat.sqrt_le _),
+lemma mem_forms_b_aux {Q : QF₂ℤ} (hr : is_reduced Q) :
+  coeff_a Q ≤ int.sqrt ((-discr' Q + coeff_b Q * coeff_b Q) / 4) :=
+int.le_sqrt_of_mul_self_le (le_trans
+  (mul_le_mul_of_nonneg_left hr.a_le_c hr.coeff_a_nonneg)
+  (int.le_div_of_mul_le (by norm_num)
+                        (le_of_eq (by simp [discr', mul_assoc, mul_comm, mul_left_comm]))))
+
+lemma mul_self_eq_of_abs_eq {a b : ℤ} (h : abs a = b) : a * a = b * b :=
+by rw [←abs_mul_self, abs_mul, h]
+
+lemma mem_forms_b_iff : Π {d b : ℕ} (hd : (4 : ℤ) ∣ d + b * b) {Q : QF₂ℤ},
+  (Q ∈ forms_b d b) ↔ (is_reduced Q ∧ 0 < coeff_a Q ∧ abs (coeff_b Q) ≤ b ∧ discr' Q = -d)
+| d 0 hd Q := (mem_forms_a_iff (nat.sqrt_le _)).trans
+begin
+  simp only [int.coe_nat_zero, abs_nonpos_iff, abs_eq_zero, a_mul_c_zero, int.coe_nat_div],
+  split; rintros ⟨hr, a'_pos, h⟩; use hr; use a'_pos,
+  { rcases h with ⟨ha, hb, hc⟩,
+    refine ⟨hb, _⟩,
+    simp [discr', hb, mul_assoc, hc, int.mul_div_cancel' (by simpa using hd)] },
+  { rcases h with ⟨hb, hc⟩,
+    refine ⟨_, hb, _⟩,
+    { convert mem_forms_b_aux hr,
+      simp [hc, hb],
+      refl },
+    { simp [eq_neg_of_eq_neg hc, discr', hb, mul_assoc, (show (4 : ℤ) ≠ 0, by norm_num)] } }
+end
+| d 1 hd Q := (mem_forms_a_iff (nat.sqrt_le _)).trans
+begin
+  simp only [a_mul_c_one, int.coe_nat_one, mul_one, int.coe_nat_div, int.coe_nat_add] at *,
+  split; rintros ⟨hr, a'_pos, h⟩; use hr; use a'_pos,
+  { rcases h with ⟨ha, hb, hc⟩,
+    refine ⟨le_of_eq hb, _⟩,
+    rw [discr', ←abs_mul_self (coeff_b Q), abs_mul, hb],
+    simp [mul_assoc, hc, int.mul_div_cancel' (by simpa using hd), sub_eq_add_neg] },
+  { rcases h with ⟨hb, hc⟩,
+    by_cases h : abs (coeff_b Q) = 0,
+    { exfalso,
+      cases hd with d_div_4 hd,
+      suffices : (- -(4 * coeff_a Q * coeff_c Q) + ↑1 * ↑1) % 4 = (4 * d_div_4) % 4,
+      { convert this;
+          try { rw [←int.mod_add_mod, mul_assoc] };
+        norm_num },
+      congr' 1,
+      simpa [discr', eq_neg_of_eq_neg hc, abs_eq_zero.mp h] using hd },
+    have hb : abs (coeff_b Q) = 1 := le_antisymm hb (lt_of_le_of_ne (abs_nonneg _) (ne.symm h)),
+    refine ⟨_, hb, _⟩,
+    { convert mem_forms_b_aux hr,
+      rw [hc, mul_self_eq_of_abs_eq hb, neg_neg],
+      refl },
+    { simp [eq_neg_of_eq_neg hc, discr', mul_self_eq_of_abs_eq hb, mul_assoc, (show (4 : ℤ) ≠ 0, by norm_num)] } }
+end
+| d b@(nat.succ (nat.succ b_n)) hd Q := list.mem_append.trans
+begin
   have hd_n : (4 : ℤ) ∣ d + b_n * b_n,
   { rcases hd with ⟨d_div_4, hd⟩,
     use d_div_4 - (b_n + 1),
-    rw [eq_sub_of_add_eq hd, int.coe_nat_add],
+    rw [eq_sub_of_add_eq hd, int.coe_nat_succ, int.coe_nat_succ],
     ring },
-  erw mem_forms_b hd_n,
-  have : (4 : ℤ) * ((d + (b_n + (1 + 1)) * (b_n + (1 + 1))) / (1 + 1 + 1 + 1)) = d + (b_n + 2) * (b_n + 2) :=
-    int.mul_div_cancel' hd,
-  simp only [←distrib_and_or, a_mul_c, nat.add_def, add_assoc, add_zero],
-  push_cast,
-  split,
-  { rintros (⟨hr, ha, ⟨ha', hb, hc⟩ | ⟨hb, hc⟩⟩);
-    refine ⟨hr, ha, by linarith, _⟩,
-    { rw [mul_assoc, hc, ←abs_mul_self b', abs_mul, hb, this],
+  simp only [mem_forms_a_iff (nat.sqrt_le _), mem_forms_b_iff hd_n, ←distrib_and_or, int.coe_nat_succ] at *,
+  split; rintros ⟨hr, a'_pos, h⟩; use hr; use a'_pos,
+  { rcases h with ⟨ha, hb, hc⟩ | ⟨hb, hc⟩,
+    { refine ⟨le_of_eq hb, _⟩,
+      erw [discr', mul_assoc, hc, mul_self_eq_of_abs_eq hb, a_mul_c, int.mul_div_cancel' hd],
       ring },
-    { exact hc } },
-  { rintros ⟨hr, ha, hb, hc⟩,
-    refine ⟨hr, ha, _⟩,
-    have := eq_neg_of_eq_neg hc,
-    by_cases abs_b'_eq_b : abs b' = b_n + 2,
-    { left,
-      have : a' * c' = (d + (b_n + 2) * (b_n + 2)) / 4,
-      { rw [this, ←abs_mul_self b', abs_mul, abs_b'_eq_b],
-        convert (int.mul_div_cancel _ (show (4 : ℤ) ≠ 0, by norm_num)).symm,
-        ring },
-      refine ⟨_, abs_b'_eq_b, _⟩,
-      { show a' ≤ int.sqrt ↑(a_mul_c d (b_n + 2)),
-        apply int.le_sqrt_of_mul_self_le,
-        convert ((mul_le_mul_left ha).mpr hr.of_tuple_a_le_c),
-        exact this.symm },
-      { exact this } },
-    by_cases abs_b'_eq_succ_b : abs b' = b_n + 1,
+    { refine ⟨_, hc⟩,
+      linarith } },
+  { rcases h with ⟨hb, hc⟩,
+    by_cases b'_le_b_n : abs (coeff_b Q) ≤ b_n,
+    { exact or.inr ⟨b'_le_b_n, hc⟩ },
+    by_cases b'_eq_succ_b_n : abs (coeff_b Q) = b_n + 1,
     { exfalso,
-      suffices : (4 : ℤ) ∣ 4 * a' * c' + 2 * b_n + 3,
-      { rw [add_assoc, mul_assoc] at this,
-        cases int.dvd_self_mul_add.mp this with d h,
-        cases (int.dvd_iff_mod_eq_zero _ _).mp (int.dvd_self_mul_add.mp ⟨2 * d, trans h (mul_assoc 2 2 d)⟩) },
-      convert hd using 1,
-      rw [this, ←abs_mul_self b', abs_mul, abs_b'_eq_succ_b],
-      simp,
-      ring },
-    right,
-    rw [←add_assoc] at hb,
-    refine ⟨int.le_of_lt_add_one (lt_of_le_of_ne (int.le_of_lt_add_one (lt_of_le_of_ne hb abs_b'_eq_b)) abs_b'_eq_succ_b), hc⟩ }
-  end
+      obtain ⟨d, h⟩ := show 4 ∣ 2 * abs (coeff_b Q) + 1,
+      by { apply (@int.dvd_self_mul_add _ (coeff_a Q * coeff_c Q) _).mp,
+        convert hd using 1,
+        rw [eq_neg_of_eq_neg hc, ←b'_eq_succ_b_n, discr', add_mul, mul_add, ←abs_mul, abs_mul_self],
+        ring },
+      cases (int.dvd_iff_mod_eq_zero _ _).mp (int.dvd_self_mul_add.mp ⟨2 * d, trans h (mul_assoc 2 2 d)⟩) },
+    have b'_eq_succ_succ_b_n : abs (coeff_b Q) = b_n + 1 + 1 := le_antisymm hb
+      (lt_of_le_of_ne (int.add_one_le_of_lt (lt_of_not_ge b'_le_b_n)) (ne.symm b'_eq_succ_b_n)),
+    simp only [int.coe_nat_sqrt, a_mul_c, int.coe_nat_div, int.coe_nat_mul, int.coe_nat_add, int.coe_nat_succ, ←b'_eq_succ_succ_b_n, int.coe_nat_zero, zero_add, eq_neg_of_eq_neg hc, ←abs_mul, abs_mul_self],
+    refine or.inl ⟨mem_forms_b_aux hr, rfl, _⟩,
+    convert (int.mul_div_cancel_left (coeff_a Q * coeff_c Q) (show (4 : ℤ) ≠ 0, by norm_num)).symm,
+    simp [discr', mul_assoc] },
+end
 
 lemma nodup_forms_b : Π (d b : ℕ), list.nodup (forms_b d b)
 | d 0 := nodup_forms_a _ _ _
@@ -1746,39 +1741,30 @@ begin
   rw [this, int.add_mod_mod, ←two_mul, int.mul_mod_right]
 end
 
-lemma of_tuple_mem_list_reduced_forms {d : ℕ} {a' b' c' : ℤ} (hd : d ≡ 0 [MOD 4] ∨ d ≡ 3 [MOD 4]) :
-  (of_tuple a' b' c' ∈ list_reduced_forms d) ↔ (is_reduced (of_tuple a' b' c') ∧ 0 < a' ∧ b' * b' - 4 * a' * c' = -d) :=
+lemma mem_list_reduced_forms_iff {d : ℕ} {Q : QF₂ℤ} (hd : d ≡ 0 [MOD 4] ∨ d ≡ 3 [MOD 4]) :
+  (Q ∈ list_reduced_forms d) ↔ (is_reduced Q ∧ 0 < coeff_a Q ∧ discr' Q = -d) :=
 begin
-  refine iff.trans (mem_forms_b _) _,
+  refine iff.trans (mem_forms_b_iff _) _,
   { exact int.coe_nat_dvd.mpr (hd.elim (mem_list_reduced_forms_aux_left _) (mem_list_reduced_forms_aux_right _)) },
   split,
   { exact λ ⟨hr, ha, _, hc⟩, ⟨hr, ha, hc⟩ },
   rintros ⟨hr, ha, hc⟩,
-  refine ⟨hr, ha, le_trans hr.of_tuple_abs_b_le_a _, hc⟩,
-  rw [int.coe_nat_add, count_u],
+  refine ⟨hr, ha, le_trans hr.abs_b_le_a _, hc⟩,
+  simp only [int.coe_nat_add, count_u, int.coe_nat_mul, int.coe_nat_sqrt, int.coe_nat_div, add_zero],
   apply le_trans _ (add_le_add_left (int.coe_nat_nonneg _) _),
-  show a' ≤ int.sqrt (↑(d / 3)) + 0,
-  rw [int.coe_nat_div, add_zero],
   apply int.le_sqrt_of_mul_self_le,
   apply (int.le_div_iff_mul_le (show (0 : ℤ) < 3, by norm_num)).mpr,
   rw [mul_comm, ←mul_assoc],
-  convert @coeff_a_bound (-d) _ hr _; simp,
-  exact hc
+  convert @coeff_a_bound (-d) _ hr _; simp [hc]
 end
 
 lemma mem_list_reduced_forms {d : ℕ} (hd : d ≡ 0 [MOD 4] ∨ d ≡ 3 [MOD 4]) (d_nonzero : d ≠ 0) {Q : QF₂ℤ} :
   Q ∈ list_reduced_forms d ↔ (discr' Q = -d ∧ pos_def Q.val ∧ is_reduced Q) :=
-begin
-  rw [←of_tuple_coeff Q],
-  apply iff.trans (of_tuple_mem_list_reduced_forms hd),
-  split,
-  { rintros ⟨hr, ha, hc⟩,
-    have : discr' Q < 0,
-    { convert neg_lt_zero.mpr (lt_of_le_of_ne (int.coe_nat_nonneg _) (mt int.coe_nat_inj d_nonzero.symm)) },
-    convert and.intro hc (and.intro ha hr); simp [pos_def_iff_of_discr_neg this] },
-  { rintros ⟨hc, hpd, hr⟩,
-    convert and.intro hr (and.intro (coeff_a_pos hpd) hc); simp }
-end
+have discr' Q = -d → discr' Q < 0 :=
+  λ hd, (by simpa [hd] using lt_of_le_of_ne (nat.zero_le d) d_nonzero.symm),
+(mem_list_reduced_forms_iff hd).trans
+  ⟨ λ ⟨hr, ha, hd⟩, ⟨hd, (pos_def_iff_of_discr_neg (this hd)).mpr ha, hr⟩,
+    λ ⟨hd, hpd, hr⟩, ⟨hr, coeff_a_pos hpd, hd⟩ ⟩
 
 lemma to_finset_list_reduced_forms {d : ℕ} (hd : d ≡ 0 [MOD 4] ∨ d ≡ 3 [MOD 4]) (d_nonzero : d ≠ 0) :
   list.to_finset (list_reduced_forms d) = reduced_forms d :=
@@ -1803,6 +1789,6 @@ count_reduced_forms d
 ... = (list_reduced_forms d).to_finset.card : (list.card_to_finset_of_nodup (nodup_list_reduced_forms _)).symm
 ... = (reduced_forms d).card : congr_arg finset.card (to_finset_list_reduced_forms hd d_nonzero)
 
-end int_bin_quadratic_form
+#eval count_reduced_forms 37
 
-#lint
+end int_bin_quadratic_form
