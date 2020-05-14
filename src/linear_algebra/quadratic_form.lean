@@ -5,9 +5,11 @@ Author: Anne Baanen
 -/
 
 import algebra.invertible
+import data.mv_polynomial
 import linear_algebra.bilinear_form
 import linear_algebra.determinant
 import linear_algebra.special_linear_group
+import tactic.abel
 
 /-!
 # Quadratic forms
@@ -44,6 +46,7 @@ confusion between `*` from `ring` and `*` from `comm_ring`.
 
  * https://en.wikipedia.org/wiki/Quadratic_form
  * https://en.wikipedia.org/wiki/Discriminant#Quadratic_forms
+ * https://en.wikipedia.org/wiki/Binary_quadratic_form
 
 ## Tags
 
@@ -51,10 +54,14 @@ quadratic form, homogeneous polynomial, quadratic polynomial
 -/
 
 universes u v w
+
+open_locale big_operators
+
 variables {R : Type u} {M : Type v} [add_comm_group M] [ring R]
 variables {R₁ : Type u} [comm_ring R₁]
 
 namespace quadratic_form
+
 /-- Up to a factor 2, `Q.polar` is the associated bilinear form for a quadratic form `Q`.d
 
 Source of this name: https://en.wikipedia.org/wiki/Quadratic_form#Generalization
@@ -411,6 +418,7 @@ lemma lin_mul_lin_self_pos_def {R} [linear_ordered_comm_ring R] [module R M]
 λ x hx, mul_self_pos (λ h, hx (linear_map.ker_eq_bot.mp hf (by rw [h, linear_map.map_zero])))
 
 end pos_def
+
 end quadratic_form
 
 section

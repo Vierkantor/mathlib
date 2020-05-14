@@ -139,23 +139,27 @@ end to_int_vector
 
 end to_other_files
 
+/-
 structure int_bin_quadratic_form :=
 (val : quadratic_form ℚ (fin 2 → ℚ))
 (is_int : ∀ x : fin 2 → ℚ, (∀ i, ∃ (y : ℤ), x i = y) → ∃ y : ℤ, val x = y )
+-/
 
 -- Shorter notation for the case with 2 variables and integer coefficients.
 notation `M₂ℤ` := matrix (fin 2) (fin 2) ℤ
 notation `SL₂ℤ` := matrix.special_linear_group (fin 2) ℤ
 notation `SL₂ℚ` := matrix.special_linear_group (fin 2) ℚ
-notation `QF₂ℤ` := int_bin_quadratic_form
+notation `QF₂ℤ` := quadratic_form ℤ (fin 2 → ℤ)
 
-namespace int_bin_quadratic_form
+namespace quadratic_form
 
 variables {n : Type u} [fintype n] {R : Type v} {R₁ : Type v} [comm_ring R₁]
 open quadratic_form
 
+/-
 lemma eq_iff {Q Q' : QF₂ℤ} : Q = Q' ↔ Q.val = Q'.val :=
 by { cases Q, cases Q', split; intro h; congr; exact h }
+-/
 
 lemma num_eq_self_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : ↑a.num = a :=
 by { cases h, rw [h_h, rat.coe_int_num] }
@@ -163,6 +167,7 @@ by { cases h, rw [h_h, rat.coe_int_num] }
 lemma denom_eq_one_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : a.denom = 1 :=
 by { cases h, rw [h_h, rat.coe_int_denom] }
 
+/-
 lemma apply_val_int (Q : QF₂ℤ) (x y : ℤ) : ↑(Q.val ![ x, y ]).num = Q.val ![ x, y ] :=
 num_eq_self_of_is_int (Q.is_int _ (λ i, by fin_cases i; simp))
 
@@ -174,23 +179,13 @@ ext $ λ x, calc Q x
 ... = (common_denom x : ℚ)⁻¹ * (common_denom x : ℚ)⁻¹ * Q' _ : congr_arg _ (h (to_int_vector x))
 ... = Q' ((common_denom x : ℚ)⁻¹ • _) : (map_smul _ _).symm
 ... = Q' x : by rw [←eq_int_vector_div_denom x]
+-/
 
-instance : has_coe_to_fun QF₂ℤ :=
-⟨ λ _, ℤ → ℤ → ℤ, λ Q x y, (Q.val ![ x, y ]).num ⟩
-
-lemma apply_eq_num_val (Q : QF₂ℤ) (x y : ℤ) : Q x y = (Q.val ![x, y]).num := rfl
-
-@[simp] lemma denom_apply_eq_one (Q : QF₂ℤ) (x y : ℤ) : (Q.val ![x, y]).denom = 1 :=
-denom_eq_one_of_is_int (Q.is_int _ (λ i, by { fin_cases i, exact ⟨x, rfl⟩, exact ⟨y, rfl⟩ }))
-
-@[simp] lemma coe_apply (Q : QF₂ℤ) (x y : ℤ) : ↑(Q x y) = Q.val ![x, y] :=
-rat.eq_iff_mul_eq_mul.mpr (by simp [←apply_eq_num_val])
-
-@[simp] lemma apply_neg (Q : QF₂ℤ) (x y : ℤ) : Q (-x) (-y) = Q x y :=
+@[simp] lemma apply_neg (Q : QF₂ℤ) (x y : ℤ) : Q ![-x, -y] = Q ![x, y] :=
 begin
-  rw [apply_eq_num_val, apply_eq_num_val, ←map_neg],
+  rw ← map_neg,
   congr,
-  convert trans (neg_insert (-x : ℚ) ![-y]) _; simp -- TODO: fix instance diamnond preventing us from just using `simp` here
+  convert trans (neg_insert (-x : ℤ) ![-y]) _; simp -- TODO: fix instance diamnond preventing us from just using `simp` here
 end
 
 lemma vector_2_eq (v : fin 2 → R) : ![v 0, v 1] = v :=
@@ -206,61 +201,42 @@ begin
   rw [←hx, ←hy, vector_2_eq]
 end
 
-@[ext] lemma ext (Q Q' : QF₂ℤ) (h : ∀ x y, Q x y = Q' x y) : Q = Q' :=
+@[ext] lemma int_ext (Q Q' : QF₂ℤ) (h : ∀ x y, Q ![x, y] = Q' ![x, y]) : Q = Q' :=
 begin
   cases Q,
   cases Q',
   congr,
-  apply eq_of_eq_on_int Q_val Q'_val,
-  intro xy,
-  obtain ⟨Qxy, hQxy⟩ := Q_is_int (coe ∘ xy) (λ i, ⟨xy i, rfl⟩),
-  obtain ⟨Q'xy, hQ'xy⟩ := Q'_is_int (coe ∘ xy) (λ i, ⟨xy i, rfl⟩),
-  apply rat.eq_iff_mul_eq_mul.mpr,
-  simp_rw [hQxy, hQ'xy, rat.coe_int_denom, int.coe_nat_one, mul_one],
+  ext xy,
   convert h (xy 0) (xy 1);
-    rw [vector_2_eq (coe ∘ xy)];
-    apply eq.symm;
-    assumption
+    rw [vector_2_eq xy]
 end
 
 section of_tuple
-@[simp] lemma matrix.to_quadratic_form_apply (M : matrix n n R₁) (x : n → R₁) :
-  (M.to_quadratic_form : (n → R₁) → R₁) x = dot_product (λ j, dot_product x (λ i, M i j)) x :=
-show (row x ⬝ M ⬝ col x) ⟨⟩ ⟨⟩ = dot_product (λ j, dot_product x (λ i, M i j)) x,
-by simp [matrix.mul_val, dot_product]
 
+#check algebra_int
+@[simp] lemma smul_eq_mul'  : @algebra.to_semimodule _ _ _ _ (algebra_int ℤ) = semiring.to_semimodule := sorry
+
+set_option pp.all true
 def of_tuple (a b c : ℤ) : QF₂ℤ :=
-{ val := matrix.to_quadratic_form ![![a, b / 2], ![b / 2, c]],
-  is_int := λ x h, begin
-    obtain ⟨y0, h0⟩ := h 0,
-    obtain ⟨y1, h1⟩ := h 1,
-    use a * y0 * y0 + b * y0 * y1 + c * y1 * y1,
-    simp [h0, h1],
-    ring
-  end }
-
-lemma of_tuple_val (a b c : ℤ) :
-  (of_tuple a b c).val = matrix.to_quadratic_form ![![a, b / 2], ![b / 2, c]] :=
-rfl
+{ to_fun := λ xy, xy 0 * xy 0 * a + xy 0 * xy 1 * b + xy 1 * xy 1 * c,
+  to_fun_smul := λ s xy, by { simp_rw [pi.smul_apply, smul_eq_mul'] }, }
+set_option pp.all false
 
 lemma of_tuple_apply (a b c x y : ℤ) :
-  of_tuple a b c x y = x * x * a + x * y * b + y * y * c :=
-  calc  rat.num (matrix.to_quadratic_form ![![(a : ℚ), b/2], ![b/2, c]] ![x, y])
-      = rat.num (x * x * a + x * y * b + y * y * c) : by { congr' 1, simp, ring }
-  ... = rat.num (@coe ℤ ℚ _ (x * x * a + x * y * b + y * y * c)) : by norm_cast
-  ... = x * x * a + x * y * b + y * y * c : rat.coe_int_num _
+  of_tuple a b c ![x, y] = x * x * a + x * y * b + y * y * c :=
+rfl
 
 end of_tuple
 
 section coeff
 def coeff_a (Q : QF₂ℤ) : ℤ :=
-Q 1 0
+Q ![1, 0]
 
 def coeff_c (Q : QF₂ℤ) : ℤ :=
-Q 0 1
+Q ![0, 1]
 
 def coeff_b (Q : QF₂ℤ) : ℤ :=
-Q 1 1 - Q 1 0 - Q 0 1
+Q ![1, 1] - Q ![1, 0] - Q ![0, 1]
 
 @[simp] lemma coeff_a_of_tuple (a b c : ℤ) : coeff_a (of_tuple a b c) = a :=
 by simp [coeff_a, of_tuple_apply]
