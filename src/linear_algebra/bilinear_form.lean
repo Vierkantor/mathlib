@@ -431,7 +431,7 @@ lemma ortho_sym {x y : M} :
 is_ortho B x y ↔ is_ortho B y x := refl_bilin_form.ortho_sym (is_refl H)
 
 lemma to_bilin_form_is_sym {M : matrix n n R₂} : is_sym M.to_bilin_form ↔ M.transpose = M :=
-⟨ λ h, by { ext, rw ←to_matrix_right_inverse M, simp [to_matrix_apply, sym h] },
+⟨ λ h, by { ext, rw [←to_matrix_right_inverse M, to_matrix_apply, h, transpose_val, to_matrix_apply] },
   λ h x y, show (row x ⬝ M ⬝ col y) ⟨⟩ ⟨⟩ = (row y ⬝ M ⬝ col x)ᵀ ⟨⟩ ⟨⟩, by simp [h, matrix.mul_assoc] ⟩
 
 end sym_bilin_form

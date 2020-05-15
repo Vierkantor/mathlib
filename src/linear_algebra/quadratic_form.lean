@@ -502,13 +502,13 @@ instance matrix_smul : has_scalar (matrix n n R₁) (quadratic_form R₁ (n → 
 
 lemma smul_eq (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) : M • Q = Q.comp Mᵀ.to_lin := rfl
 
-@[simp] lemma coe_fn_smul (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) :
+@[simp] lemma coe_fn_matrix_smul (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) :
   ⇑(M • Q) = Q ∘ Mᵀ.to_lin :=
 rfl
 
 @[simp]
 lemma neg_action (M : matrix n n R₁) (Q : quadratic_form R₁ (n → R₁)) : -M • Q = M • Q :=
-by { ext, simp [coe_fn_smul, neg_mul_vec, map_neg] }
+by { ext, simp [neg_mul_vec, map_neg] }
 
 /--
   The action works by multiplying on either side.
