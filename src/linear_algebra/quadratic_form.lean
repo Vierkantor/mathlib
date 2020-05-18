@@ -298,7 +298,145 @@ lemma lin_mul_lin_comp (f g : M →ₗ[R₁] R₁) (h : N →ₗ[R₁] M) :
   (lin_mul_lin f g).comp h = lin_mul_lin (f.comp h) (g.comp h) :=
 rfl
 
-variables {n : Type*}
+variables {n : Type*} [fintype n]
+
+/-- TODO: move to correct file -/
+def homogeneous (f : mv_polynomial n R₁) (d : ℕ) : Prop :=
+∀ σ ∈ f.support, finsupp.sum σ (λ _ k, k) = d
+
+lemma eval₂_smul_of_homogeneous {f : mv_polynomial n R₁} {d : ℕ} (hf : homogeneous f d)
+  (g : R₁ →* R₁) (s : R₁) (x : n → R₁) : f.eval₂ g (s • x : n → R₁) = s ^ d * f.eval₂ g x :=
+calc ∑ σ in f.support, g (f.to_fun σ) * ∏ i in σ.support, (s • x) i ^ σ i
+    = ∑ σ in f.support, s ^ d * (g (f.to_fun σ) * ∏ i in σ.support, x i ^ σ i) :
+begin
+  simp_rw [pi.smul_apply, smul_eq_mul, mul_pow, finset.prod_mul_distrib, finset.prod_pow_eq_pow_sum],
+  apply finset.sum_congr rfl,
+  intros σ hσ,
+  rw mul_left_comm,
+  congr,
+  exact hf σ hσ
+end
+... = s ^ d * ∑ σ in f.support, g (f.to_fun σ) * ∏ i in σ.support, x i ^ σ i : finset.mul_sum.symm
+
+lemma eval_smul_of_homogeneous {f : mv_polynomial n R₁} {d : ℕ} (hf : homogeneous f d)
+  (s : R₁) (x : n → R₁) : f.eval (s • x) = s^d * f.eval x :=
+eval₂_smul_of_homogeneous hf (monoid_hom.id R₁) s x
+
+open_locale big_operators
+open_locale classical
+
+lemma nat.eq_zero_of_sum_eq_zero {s : finset n} {g : n → ℕ} (h : finset.sum s g = 0) {i : n} (hi : i ∈ s) :
+  g i = 0 :=
+(finset.sum_eq_zero_iff_of_nonneg (λ _ _, nat.zero_le _)).mp h i hi
+
+lemma finsupp.eq_zero_of_sum_eq_zero {g : n →₀ ℕ} (h : g.sum (λ _ n, n) = 0) :
+  g = 0 :=
+begin
+  ext i,
+  by_cases hi : i ∈ g.support,
+  { exact nat.eq_zero_of_sum_eq_zero h hi },
+  { exact finsupp.not_mem_support_iff.mp hi }
+end
+
+lemma prod_pow_zero {s : finset n} (f : n → R₁) {g : n → ℕ} (h : finset.sum s g = 0) :
+  ∏ i in s, f i ^ g i = 1 :=
+finset.prod_eq_one (λ i hi, trans
+  (congr_arg _ ((finset.sum_eq_zero_iff_of_nonneg (λ _ _, nat.zero_le _)).mp h i hi))
+  (pow_zero (f i)))
+
+lemma sum_eq_succ [decidable_eq n] {s : finset n} {g : n → ℕ} {k : ℕ} (h : finset.sum s g = k.succ) :
+  ∃ (j ∈ s) (g' : n → ℕ), finset.sum s g' = k ∧ g = g' + λ i, if j = i then 1 else 0 :=
+begin
+  obtain ⟨j, j_mem_s, hj⟩ := finset.exists_ne_zero_of_sum_ne_zero (nat.succ_ne_zero k ∘ trans h.symm),
+  obtain ⟨g'j, hg'j⟩ := nat.exists_eq_succ_of_ne_zero hj,
+  use j,
+  use j_mem_s,
+  use λ i, if j = i then g'j else g i,
+  have g_eq : ∀ i, g i = (if j = i then g'j else g i) + if j = i then 1 else 0,
+  { intro i,
+    split_ifs with h,
+    { simpa [h] using hg'j },
+    { apply add_zero } },
+  refine ⟨nat.succ_inj (trans _ h), funext g_eq⟩,
+  calc (∑ i in s, if j = i then g'j else g i) + 1
+        = (∑ i in s, if j = i then g'j else g i) + ∑ i in s, if j = i then 1 else 0 :
+          congr_arg _ (trans (@finset.sum_eq_single _ _ _ _ (λ i, if j = i then 1 else 0) j
+                                                    (λ i _ hi, if_neg hi.symm)
+                                                    (λ hj, absurd j_mem_s hj))
+                            (if_pos (eq.refl j))).symm
+  ... = ∑ i in s, ((if j = i then g'j else g i) + (if j = i then 1 else 0)) : finset.sum_add_distrib.symm
+  ... = s.sum g : finset.sum_congr rfl (λ i _, symm (g_eq i))
+end
+
+lemma finsupp.sum_eq_succ [decidable_eq n] {g : n →₀ ℕ} {k : ℕ} (h : g.sum (λ _ n, n) = k.succ) :
+  ∃ (j ∈ g.support) (g' : n →₀ ℕ), g'.sum (λ _ n, n) = k ∧ g = finsupp.single j 1 + g' :=
+begin
+  obtain ⟨j, hj, g', sum_eq, g_eq⟩ := sum_eq_succ h,
+  have g_eq : coe_fn g = g' + λ i, if j = i then 1 else 0 := g_eq,
+  use j,
+  use hj,
+  refine ⟨finsupp.on_finset g.support g' _, trans _ sum_eq, _⟩,
+  { intros i hi,
+    apply finsupp.mem_support_iff.mpr,
+    rw [g_eq, pi.add_apply],
+    split_ifs,
+    { apply nat.succ_ne_zero },
+    { exact hi } },
+  { rw [finsupp.sum, finsupp.on_finset, finset.sum_filter],
+    apply finset.sum_congr rfl,
+    intros i hi,
+    split_ifs with g'i_eq,
+    { refl },
+    { push_neg at g'i_eq,
+      exact g'i_eq.symm } },
+  { ext i,
+    rw [congr_fun g_eq i, pi.add_apply, finsupp.add_apply, finsupp.on_finset_apply, finsupp.single_apply, add_comm],
+    congr },
+end
+
+lemma finsupp.support_zip_with_eq_filter_union (o : ℕ → ℕ → ℕ) (h : o 0 0 = 0) (f g : n →₀ ℕ) :
+  (finsupp.zip_with o h f g).support = (f.support ∪ g.support).filter (λ i, o (f i) (g i) ≠ 0) :=
+finset.filter_congr_decidable _ _ _
+
+lemma finsupp.support_add_eq_filter_union (f g : n →₀ ℕ) :
+  (f + g).support = (f.support ∪ g.support).filter (λ i, f i + g i ≠ 0) :=
+finsupp.support_zip_with_eq_filter_union _ _ f g
+
+lemma finsupp.subset_support_add {f g : n →₀ ℕ} {s : finset n} (h : ∀ i ∈ s, f i + g i ≠ 0) :
+  s ⊆ (f + g).support :=
+λ i hi, finsupp.mem_support_iff.mpr (h i hi)
+
+lemma finsupp.support_single_add_of_nonzero {i : n} {x : ℕ} {f : n →₀ ℕ} (hx : x + f i ≠ 0) :
+  (finsupp.single i x + f).support = insert i f.support :=
+show (finsupp.single i x + f).support = {i} ∪ f.support,
+from le_antisymm (le_trans finsupp.support_add (sup_le_sup_right finsupp.support_single_subset _))
+                 (finsupp.subset_support_add (λ j hj, if hij : i = j
+                                                      then by simpa [hij] using hx
+                                                      else by simpa [hij, ne.symm hij] using hj))
+
+lemma prod_single_add (f : n → ℕ → R₁) (f_zero : ∀ i, f i 0 = 1) (f_add : ∀ i x y, f i (x + y) = f i x * f i y)
+  {i : n} {x : ℕ} (g : n →₀ ℕ) : (finsupp.single i x + g).prod f = f i x * g.prod f :=
+begin
+  rw [finsupp.prod_add_index f_zero f_add, finsupp.prod, finset.prod_eq_single i _ _, finsupp.single_eq_same],
+  { intros j _ hj,
+    rw [finsupp.single_eq_of_ne hj.symm, f_zero] },
+  { intros hi,
+    rw [finsupp.not_mem_support_iff.mp hi, f_zero] }
+end
+
+lemma single_one_add_prod_pow {i : n} (x : n → R₁) (g : n →₀ ℕ) :
+  (finsupp.single i 1 + g).prod (λ j, pow (x j)) = x i * g.prod (λ j, pow (x j)) :=
+trans (prod_single_add (λ j, pow (x j)) (λ _, pow_zero _) (λ _, pow_add _) g) (by rw [pow_one])
+
+lemma exist_indices_of_degree_two {σ : n →₀ ℕ} (hσ : finsupp.sum σ (λ _ k, k) = 2) :
+  ∃ (i j : n), ∀ (x : n → R₁), σ.prod (λ i, pow (x i)) = x i * x j :=
+begin
+  obtain ⟨i, i_mem, σ', hσ', rfl⟩ := finsupp.sum_eq_succ hσ,
+  obtain ⟨j, j_mem, σ'', hσ'', rfl⟩ := finsupp.sum_eq_succ hσ',
+  use [i, j],
+  intro x,
+  sorry
+end
 
 /-- `proj i j` is the quadratic form mapping the vector `x : n → R₁` to `x i * x j` -/
 def proj (i j : n) : quadratic_form R₁ (n → R₁) :=
@@ -306,6 +444,41 @@ lin_mul_lin (@linear_map.proj _ _ _ (λ _, R₁) _ _ i) (@linear_map.proj _ _ _ 
 
 @[simp]
 lemma proj_apply (i j : n) (x : n → R₁) : proj i j x = x i * x j := rfl
+
+/-- Convert a homogeneous polynomial of degree 2 to a quadratic form. -/
+def of_polynomial (f : mv_polynomial n R₁) (hf : homogeneous f 2) : quadratic_form R₁ (n → R₁) :=
+mk_left
+  (λ x, f.eval x)
+  (λ a x, by rw [eval_smul_of_homogeneous hf, pow_two])
+  (λ x x' y, begin
+    unfold polar mv_polynomial.eval mv_polynomial.eval₂ finsupp.sum id,
+    simp_rw [←finset.sum_sub_distrib, ←finset.sum_add_distrib, ←mul_sub, ←mul_add],
+    apply finset.sum_congr rfl,
+    intros σ hσ,
+    congr,
+    obtain ⟨i, j, _, _, hij⟩ := exist_indices_of_degree_two (hf σ hσ),
+    repeat {rw hij},
+    rw [pi.add_apply (x + x') y i, pi.add_apply (x + x') y j, pi.add_apply x x' i, pi.add_apply x x' j, pi.add_apply x y i, pi.add_apply x y j, pi.add_apply x' y i, pi.add_apply x' y j],
+    ring
+  end)
+  (λ a x y, begin
+    unfold polar mv_polynomial.eval mv_polynomial.eval₂ finsupp.sum id,
+    simp_rw [mul_sub, finset.mul_sum, ←finset.sum_sub_distrib, ←mul_sub],
+    apply finset.sum_congr rfl,
+    intros σ hσ,
+    rw [mul_left_comm a],
+    congr,
+    obtain ⟨i, j, _, _, hij⟩ := exist_indices_of_degree_two (hf σ hσ),
+    repeat {rw hij},
+    rw [pi.add_apply (a • x) y i, pi.add_apply (a • x) y j, pi.smul_apply, pi.smul_apply, pi.add_apply x y i, pi.add_apply x y j, smul_eq_mul, smul_eq_mul],
+    ring
+  end)
+
+set_option pp.all false
+
+lemma of_polynomial_map {f : mv_polynomial n R₁} {hf : homogeneous f 2} (x : n → R₁) :
+  of_polynomial f hf x = f.eval x :=
+rfl
 
 end comm_ring
 
@@ -347,6 +520,7 @@ namespace quadratic_form
 open bilin_form sym_bilin_form
 
 section associated
+
 variables [invertible (2 : R₁)] {B₁ : bilin_form R₁ M}
 
 /-- `associated` is the linear map that sends a quadratic form to its associated

@@ -167,20 +167,6 @@ by { cases h, rw [h_h, rat.coe_int_num] }
 lemma denom_eq_one_of_is_int {a : ℚ} (h : ∃ b : ℤ, a = b) : a.denom = 1 :=
 by { cases h, rw [h_h, rat.coe_int_denom] }
 
-/-
-lemma apply_val_int (Q : QF₂ℤ) (x y : ℤ) : ↑(Q.val ![ x, y ]).num = Q.val ![ x, y ] :=
-num_eq_self_of_is_int (Q.is_int _ (λ i, by fin_cases i; simp))
-
-lemma eq_of_eq_on_int (Q Q' : quadratic_form ℚ (n → ℚ))
-  (h : ∀ (x : n → ℤ), Q (coe ∘ x) = Q' (coe ∘ x)) : Q = Q' :=
-ext $ λ x, calc Q x
-    = Q ((common_denom x : ℚ)⁻¹ • _) : congr_arg _ (congr_arg _ (eq_int_vector_div_denom x))
-... = (common_denom x : ℚ)⁻¹ * (common_denom x : ℚ)⁻¹ * Q (coe ∘ to_int_vector x) : map_smul _ _
-... = (common_denom x : ℚ)⁻¹ * (common_denom x : ℚ)⁻¹ * Q' _ : congr_arg _ (h (to_int_vector x))
-... = Q' ((common_denom x : ℚ)⁻¹ • _) : (map_smul _ _).symm
-... = Q' x : by rw [←eq_int_vector_div_denom x]
--/
-
 @[simp] lemma apply_neg (Q : QF₂ℤ) (x y : ℤ) : Q ![-x, -y] = Q ![x, y] :=
 begin
   rw ← map_neg,
@@ -213,14 +199,13 @@ end
 
 section of_tuple
 
-#check algebra_int
-@[simp] lemma smul_eq_mul'  : @algebra.to_semimodule _ _ _ _ (algebra_int ℤ) = semiring.to_semimodule := sorry
+open mv_polynomial
 
-set_option pp.all true
-def of_tuple (a b c : ℤ) : QF₂ℤ :=
-{ to_fun := λ xy, xy 0 * xy 0 * a + xy 0 * xy 1 * b + xy 1 * xy 1 * c,
-  to_fun_smul := λ s xy, by { simp_rw [pi.smul_apply, smul_eq_mul'] }, }
-set_option pp.all false
+def of_tuple (a b c : R₁) : quadratic_form R₁ (fin 2 → R₁) :=
+mk_left (λ xy, xy 0 * xy 0 * a + xy 0 * xy 1 * b + xy 1 * xy 1 * c)
+        (λ s xy, by { rw [pi.smul_apply, pi.smul_apply, smul_eq_mul, smul_eq_mul], ring_exp })
+        (λ x x' y, _)
+        (λ s x y, _)
 
 lemma of_tuple_apply (a b c x y : ℤ) :
   of_tuple a b c ![x, y] = x * x * a + x * y * b + y * y * c :=
