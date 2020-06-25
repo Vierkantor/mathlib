@@ -558,6 +558,19 @@ lemma degree_ne_of_nat_degree_ne {n : ℕ} :
   (λ _ h, option.no_confusion h)
   (λ n' h, mt option.some_inj.mp h)
 
+lemma coeff_nat_degree_eq_zero_iff {f : polynomial R} : f.coeff f.nat_degree = 0 ↔ f = 0 :=
+begin
+  split; intro hf,
+  { refine polynomial.degree_eq_bot.mp _,
+    cases i_def : f.degree with i,
+    { exact rfl },
+    simp only [nat_degree, degree, ←finset.max_eq_sup_with_bot] at i_def hf,
+    rw [i_def, option.get_or_else_some] at hf,
+    have := finsupp.mem_support_iff.mp (finset.mem_of_max i_def),
+    contradiction },
+  { rw [hf, polynomial.coeff_zero] }
+end
+
 end semiring
 
 section comm_semiring
@@ -1499,6 +1512,21 @@ begin
   { intros n r ih,
     rw [pow_succ', ← mul_assoc, φ.map_mul, eval₂_mul (algebra_map R A), eval₂_X, ih] }
 end
+
+variables [comm_ring S] {f : R →+* S}
+
+lemma is_root_of_eval₂_map_eq_zero
+  (hf : function.injective f) {r : R} : eval₂ f (f r) p = 0 → p.is_root r :=
+show eval₂ (f ∘ ring_hom.id R) (f r) p = 0 → eval₂ (ring_hom.id R) r p = 0, begin
+  intro h,
+  apply hf,
+  rw [hom_eval₂, h, f.map_zero]
+end
+
+lemma is_root_of_aeval_algebra_map_eq_zero [algebra R S] {p : polynomial R}
+  (inj : function.injective (algebra_map R S))
+  {r : R} (hr : aeval R S (algebra_map R S r) p = 0) : p.is_root r :=
+is_root_of_eval₂_map_eq_zero inj hr
 
 end aeval
 
