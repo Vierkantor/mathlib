@@ -267,6 +267,17 @@ begin
   exact subtype.eq hmp
 end
 
+variables {R} {A}
+
+lemma integral_closure.is_integral (x : integral_closure R A) : is_integral R x :=
+begin
+  obtain ⟨p, p_monic, hp⟩ := x.2,
+  refine ⟨p, p_monic, _⟩,
+  ext,
+  refine trans _ hp,
+  exact p.hom_eval₂ _ (subalgebra.coe_hom (integral_closure R A)).to_ring_hom x
+end
+
 end
 
 section algebra
@@ -334,3 +345,27 @@ instance : integral_domain (integral_closure R S) :=
   ..(integral_closure R S).comm_ring R S }
 
 end integral_domain
+
+lemma submodule.ne_bot_iff {R S : Type*} [semiring R] [add_comm_monoid S] [semimodule R S]
+  {I : submodule R S} : I ≠ ⊥ ↔ ∃ x ∈ I, x ≠ (0 : S) :=
+begin
+  rw [ne.def, eq_bot_iff],
+  show (¬ ∀ x ∈ I, x ∈ ⊥) ↔ ∃ x ∈ I, x ≠ (0 : S),
+  simp only [classical.not_forall, mem_bot, exists_prop],
+end
+
+namespace ideal
+
+variables {R S : Type*} [comm_ring R] [nontrivial R] [integral_domain S] [algebra R S]
+
+lemma comap_ne_bot_of_integral {I : ideal S} (I_ne_bot : I ≠ ⊥) (hI : ∀ x ∈ I, is_integral R x) :
+  I.comap (algebra_map R S) ≠ ⊥ :=
+let ⟨x, mem, x_ne_zero⟩ := submodule.ne_bot_iff.mp I_ne_bot,
+    ⟨p, p_monic, hp⟩ := hI x mem
+in comap_ne_bot_of_root_mem x_ne_zero mem p_monic.ne_zero hp
+
+lemma comap_integral_closure_ne_bot {I : ideal (integral_closure R S)} (I_ne_bot : I ≠ ⊥) :
+  I.comap (algebra_map R (integral_closure R S)) ≠ ⊥ :=
+comap_ne_bot_of_integral I_ne_bot (λ x _, integral_closure.is_integral x)
+
+end ideal

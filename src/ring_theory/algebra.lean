@@ -790,6 +790,17 @@ theorem map_le {S : subalgebra R A} {f : A →ₐ[R] B} {U : subalgebra R B} :
   map S f ≤ U ↔ S ≤ comap' U f :=
 set.image_subset_iff
 
+/-- `coe_hom S` is the coercion from an subalgebra `S` of `A` to `A` as a homomorphism -/
+def coe_hom : S →ₐ[R] A :=
+{ to_fun := coe,
+  map_one' := rfl,
+  map_zero' := rfl,
+  map_add' := λ x y, rfl,
+  map_mul' := λ x y, rfl,
+  commutes' := λ r, rfl }
+
+@[simp] lemma coe_hom_apply (x : S) : coe_hom S x = ↑x := rfl
+
 end subalgebra
 
 namespace alg_hom

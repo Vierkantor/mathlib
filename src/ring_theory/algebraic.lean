@@ -108,9 +108,9 @@ lemma is_algebraic_of_finite [finite : finite_dimensional K L] : is_algebraic K 
 
 end algebra
 
-variables {R S : Type*} [integral_domain R] [comm_ring S]
+variables {R S : Type*} [integral_domain R]
 
-lemma exists_integral_multiple [algebra R S] {z : S} (hz : is_algebraic R z)
+lemma exists_integral_multiple [comm_ring S] [algebra R S] {z : S} (hz : is_algebraic R z)
   (inj : ∀ x, algebra_map R S x = 0 → x = 0) :
   ∃ (x : integral_closure R S) (y ≠ (0 : integral_closure R S)),
     z * y = x :=
@@ -127,3 +127,14 @@ begin
   refine ⟨⟨_, x_integral⟩, ⟨_, y_integral⟩, _, rfl⟩,
   exact λ h, a_ne_zero (inj _ (subtype.ext_iff_val.mp h))
 end
+
+namespace ideal
+
+variables [nontrivial R] [integral_domain S] [algebra R S]
+
+lemma comap_ne_bot_of_algebraic_mem {I : ideal S} {x : S}
+  (x_ne_zero : x ≠ 0) (x_mem : x ∈ I) (hx : is_algebraic R x) : I.comap (algebra_map R S) ≠ ⊥ :=
+let ⟨p, p_ne_zero, hp⟩ := hx
+in comap_ne_bot_of_root_mem x_ne_zero x_mem p_ne_zero hp
+
+end ideal
