@@ -207,4 +207,10 @@ end
 
 end det_zero
 
+variables {M : matrix (fin 2) (fin 2) R}
+
+lemma det_2x2 (M : matrix (fin 2) (fin 2) R) : M.det = M 0 0 * M 1 1 - M 1 0 * M 0 1 :=
+calc M.det = ((1 : units ℤ) * (_ * (_ * 1))) + (((-1 : units ℤ) * (_ * (_ * 1))) + 0) : refl M.det
+... = M 0 0 * M 1 1 - M 1 0 * M 0 1 : by { simp, ring }
+
 end matrix
