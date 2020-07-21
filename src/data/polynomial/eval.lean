@@ -143,7 +143,7 @@ end eval₂
 section eval
 variable {x : R}
 
-/-- `eval x p` is the evaluation of the polynomial `p` at `x` -/
+/- /-- `eval x p` is the evaluation of the polynomial `p` at `x` -/
 def eval : R → polynomial R → R := eval₂ (ring_hom.id _)
 
 @[simp] lemma eval_C : (C a).eval x = a := eval₂_C _ _
@@ -196,6 +196,8 @@ lemma zero_is_root_of_coeff_zero_eq_zero {p : polynomial R} (hp : p.coeff 0 = 0)
   is_root p 0 :=
 by rwa coeff_zero_eq_eval_zero at hp
 
+-/
+
 end eval
 
 
@@ -215,15 +217,18 @@ end
 
 @[simp] lemma X_comp : X.comp p = p := eval₂_X _ _
 
+/- -- Move me!
 @[simp] lemma comp_C : p.comp (C a) = C (p.eval a) :=
 begin
   dsimp [comp, eval₂, eval, finsupp.sum],
   rw [← p.support.sum_hom (@C R _)],
   apply finset.sum_congr rfl; simp
 end
+-/
 
 @[simp] lemma C_comp : (C a).comp p = C a := eval₂_C _ _
 
+/- -- Move me!
 @[simp] lemma comp_zero : p.comp (0 : polynomial R) = C (p.eval 0) :=
 by rw [← C_0, comp_C]
 
@@ -232,6 +237,7 @@ by rw [← C_0, C_comp]
 
 @[simp] lemma comp_one : p.comp 1 = C (p.eval 1) :=
 by rw [← C_1, comp_C]
+-/
 
 @[simp] lemma one_comp : comp (1 : polynomial R) p = 1 :=
 by rw [← C_1, C_comp]
@@ -286,12 +292,14 @@ ext (by simp [coeff_map])
 
 @[simp] lemma map_id : p.map (ring_hom.id _) = p := by simp [polynomial.ext_iff, coeff_map]
 
+/-- Move me!
 lemma eval₂_eq_eval_map {x : S} : p.eval₂ f x = (p.map f).eval x :=
 begin
   apply polynomial.induction_on' p,
   { intros p q hp hq, simp [hp, hq], },
   { intros n r, simp, }
 end
+-/
 
 lemma map_injective (hf : function.injective f): function.injective (map f) :=
 λ p q h, ext $ λ m, hf $ by rw [← coeff_map f, ← coeff_map f, h]
@@ -350,8 +358,10 @@ begin
   { intro a, simp only [ring_hom.map_zero, zero_mul], },
 end
 
+/- -- Move me!
 lemma eval_map (x : S) : (p.map f).eval x = p.eval₂ f x :=
 eval₂_map f (ring_hom.id _) x
+-/
 
 end map
 
@@ -399,8 +409,10 @@ is_ring_hom.map_sub _
   (-p).map f = -(p.map f) :=
 is_ring_hom.map_neg _
 
+/- -- Move me!
 @[simp] lemma eval_int_cast {n : ℤ} {x : R} : (n : polynomial R).eval x = n :=
 by simp only [←C_eq_int_cast, eval_C]
+-/
 
 @[simp] lemma eval₂_neg {S} [ring S] (f : R →+* S) {x : S} :
   (-p).eval₂ f x = -p.eval₂ f x :=
@@ -410,6 +422,7 @@ by rw [eq_neg_iff_add_eq_zero, ←eval₂_add, add_left_neg, eval₂_zero]
   (p - q).eval₂ f x = p.eval₂ f x - q.eval₂ f x :=
 by rw [sub_eq_add_neg, eval₂_add, eval₂_neg, sub_eq_add_neg]
 
+/- -- Move me!
 @[simp] lemma eval_neg (p : polynomial R) (x : R) : (-p).eval x = -p.eval x :=
 eval₂_neg _
 
@@ -418,7 +431,7 @@ eval₂_sub _
 
 lemma root_X_sub_C : is_root (X - C a) b ↔ a = b :=
 by rw [is_root.def, eval_sub, eval_X, eval_C, sub_eq_zero_iff_eq, eq_comm]
-
+-/
 
 end ring
 
@@ -429,7 +442,9 @@ instance eval₂.is_ring_hom {S} [comm_ring S]
   (f : R →+* S) {x : S} : is_ring_hom (eval₂ f x) :=
 by apply is_ring_hom.of_semiring
 
+/- -- Move me!
 instance eval.is_ring_hom {x : R} : is_ring_hom (eval x) := eval₂.is_ring_hom _
+-/
 
 end comm_ring
 

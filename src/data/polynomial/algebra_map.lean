@@ -10,7 +10,7 @@ import data.polynomial.degree
 # Theory of univariate polynomials
 
 We show that `polynomial A` is an R-algebra when `A` is an R-algebra.
-We promote `eval₂` to an algebra hom in `aeval`.
+We promote `eval₂` to an algebra hom in `eval`.
 -/
 
 noncomputable theory
@@ -89,6 +89,7 @@ lemma eval₂_algebra_map_int_X {R : Type*} [ring R] (p : polynomial ℤ) (f : p
 -- Unfortunately `f.to_int_alg_hom` doesn't work here, as typeclasses don't match up correctly.
 eval₂_algebra_map_X p { commutes' := λ n, by simp, .. f }
 
+/- -- Move me!
 section eval
 variable {x : R}
 
@@ -115,6 +116,7 @@ lemma root_mul_right_of_is_root {p : polynomial R} (q : polynomial R) :
 λ H, by rw [is_root, eval_mul, is_root.def.1 H, zero_mul]
 
 end eval
+-/
 
 section comp
 
@@ -122,8 +124,9 @@ lemma eval₂_comp [comm_semiring S] (f : R →+* S) {x : S} :
   (p.comp q).eval₂ f x = p.eval₂ f (q.eval₂ f x) :=
 by rw [comp, p.as_sum]; simp only [eval₂_mul, eval₂_C, eval₂_pow, eval₂_finset_sum, eval₂_X]
 
-
+/- Move me!
 lemma eval_comp : (p.comp q).eval a = p.eval (q.eval a) := eval₂_comp _
+-/
 
 instance : is_semiring_hom (λ q : polynomial R, q.comp p) :=
 by unfold comp; apply_instance
@@ -135,10 +138,8 @@ end comp
 end comm_semiring
 
 
-section aeval
+section eval
 variables [comm_semiring R] {p : polynomial R}
-
-variables (R) (A)
 
 -- TODO this could be generalized: there's no need for `A` to be commutative,
 -- we just need that `x` is central.
@@ -146,19 +147,24 @@ variables [comm_semiring A] [algebra R A]
 variables {B : Type*} [comm_semiring B] [algebra R B]
 variables (x : A)
 
-/-- Given a valuation `x` of the variable in an `R`-algebra `A`, `aeval R A x` is
+/-- Given a valuation `x` of the variable in an `R`-algebra `A`, `eval R A x` is
 the unique `R`-algebra homomorphism from `R[X]` to `A` sending `X` to `x`. -/
-def aeval : polynomial R →ₐ[R] A :=
+def eval : polynomial R →ₐ[R] A :=
 { commutes' := λ r, eval₂_C _ _,
   ..eval₂_ring_hom (algebra_map R A) x }
 
-variables {R A}
+theorem eval_def (p : polynomial R) : eval x p = eval₂ (algebra_map R A) x p := rfl
 
-theorem aeval_def (p : polynomial R) : aeval R A x p = eval₂ (algebra_map R A) x p := rfl
+/-- `is_root p x` implies `x` is a root of `p`. The evaluation of `p` at `x` is zero -/
+def is_root (p : polynomial R) (a : R) : Prop := eval a p = 0
 
-@[simp] lemma aeval_X : aeval R A x X = x := eval₂_X _ x
+instance [decidable_eq R] : decidable (is_root p a) := by unfold is_root; apply_instance
 
-@[simp] lemma aeval_C (r : R) : aeval R A x (C r) = algebra_map R A r := eval₂_C _ x
+@[simp] lemma is_root.def : is_root p a ↔ eval a p = 0 := iff.rfl
+
+@[simp] lemma eval_X : eval x (X : polynomial R) = x := eval₂_X _ x
+
+@[simp] lemma eval_C (r : R) : eval x (C r) = algebra_map R A r := eval₂_C _ x
 
 theorem eval_unique (φ : polynomial R →ₐ[R] A) (p) :
   φ p = eval₂ (algebra_map R A) (φ X) p :=
@@ -171,17 +177,17 @@ begin
     rw [pow_succ', ← mul_assoc, φ.map_mul, eval₂_mul (algebra_map R A), eval₂_X, ih] }
 end
 
-theorem aeval_alg_hom (f : A →ₐ[R] B) (x : A) : aeval R B (f x) = f.comp (aeval R A x) :=
-alg_hom.ext $ λ p, by rw [eval_unique (f.comp (aeval R A x)), alg_hom.comp_apply, aeval_X, aeval_def]
+theorem eval_alg_hom (f : A →ₐ[R] B) (x : A) : eval (f x) = f.comp (eval x) :=
+alg_hom.ext $ λ p, by rw [eval_unique (f.comp (eval x)), alg_hom.comp_apply, eval_X, eval_def]
 
-theorem aeval_alg_hom_apply (f : A →ₐ[R] B) (x : A) (p) : aeval R B (f x) p = f (aeval R A x p) :=
-alg_hom.ext_iff.1 (aeval_alg_hom f x) p
+theorem eval_alg_hom_apply (f : A →ₐ[R] B) (x : A) (p : polynomial R) :
+  eval (f x) p = f (eval x p) :=
+alg_hom.ext_iff.1 (eval_alg_hom f x) p
 
-@[simp] lemma coe_aeval_eq_eval (r : R) :
-  (aeval R R r : polynomial R → R) = eval r := rfl
-
-lemma coeff_zero_eq_aeval_zero (p : polynomial R) : p.coeff 0 = aeval R R 0 p :=
-by simp [coeff_zero_eq_eval_zero]
+lemma coeff_zero_eq_eval_zero (p : polynomial R) : p.coeff 0 = eval 0 p :=
+calc coeff p 0 = coeff p 0 * 0 ^ 0 : by simp
+... = eval 0 p : eq.symm $
+  finset.sum_eq_single _ (λ b _ hb, by simp [zero_pow (nat.pos_of_ne_zero hb)]) (by simp)
 
 lemma pow_comp (p q : polynomial R) (k : ℕ) : (p ^ k).comp q = (p.comp q) ^ k :=
 by { unfold comp, rw ← coe_eval₂_ring_hom, apply ring_hom.map_pow }
@@ -196,19 +202,19 @@ show eval₂ (f.comp (ring_hom.id R)) (f r) p = 0 → eval₂ (ring_hom.id R) r 
   rw [hom_eval₂, h, f.map_zero]
 end
 
-lemma is_root_of_aeval_algebra_map_eq_zero [algebra R S] {p : polynomial R}
+lemma is_root_of_eval_algebra_map_eq_zero [algebra R S] {p : polynomial R}
   (inj : function.injective (algebra_map R S))
-  {r : R} (hr : aeval R S (algebra_map R S r) p = 0) : p.is_root r :=
+  {r : R} (hr : eval (algebra_map R S r) p = 0) : p.is_root r :=
 is_root_of_eval₂_map_eq_zero inj hr
 
 lemma dvd_term_of_dvd_eval_of_dvd_terms {z p : S} {f : polynomial S} (i : ℕ)
-  (dvd_eval : p ∣ f.eval z) (dvd_terms : ∀ (j ≠ i), p ∣ f.coeff j * z ^ j) :
+  (dvd_eval : p ∣ eval z f) (dvd_terms : ∀ (j ≠ i), p ∣ f.coeff j * z ^ j) :
   p ∣ f.coeff i * z ^ i :=
 begin
   by_cases hf : f = 0,
   { simp [hf] },
   by_cases hi : i ∈ f.support,
-  { unfold polynomial.eval polynomial.eval₂ finsupp.sum id at dvd_eval,
+  { have dvd_eval : p ∣ ∑ (a : ℕ) in f.support, algebra_map S S (f.coeff a) * z ^ a := dvd_eval,
     rw [←finset.insert_erase hi, finset.sum_insert (finset.not_mem_erase _ _)] at dvd_eval,
     refine (dvd_add_left (finset.dvd_sum _)).mp dvd_eval,
     intros j hj,
@@ -222,7 +228,7 @@ lemma dvd_term_of_is_root_of_dvd_terms {r p : S} {f : polynomial S} (i : ℕ)
   (hr : f.is_root r) (h : ∀ (j ≠ i), p ∣ f.coeff j * r ^ j) : p ∣ f.coeff i * r ^ i :=
 dvd_term_of_dvd_eval_of_dvd_terms i (eq.symm hr ▸ dvd_zero p) h
 
-end aeval
+end eval
 
 section ring
 variables [ring R]
@@ -235,7 +241,7 @@ when evaluated at `r`.
 This is the key step in our proof of the Cayley-Hamilton theorem.
 -/
 lemma eval_mul_X_sub_C {p : polynomial R} (r : R) :
-  (p * (X - C r)).eval r = 0 :=
+  eval r (p * (X - C r)) = 0 :=
 begin
   simp only [eval, eval₂, ring_hom.id_apply],
   have bound := calc

@@ -391,6 +391,7 @@ lemma nat_degree_pos_iff_degree_pos {p : polynomial R} :
        { exact with_bot.some_lt_some.mp } } ⟩
 
 
+/-
 lemma degree_pos_of_root {p : polynomial R} (hp : p ≠ 0) (h : is_root p a) : 0 < degree p :=
 lt_of_not_ge $ λ hlt, begin
   have := eq_C_of_degree_le_zero hlt,
@@ -399,6 +400,7 @@ lt_of_not_ge $ λ hlt, begin
     nat.cases_on n h (λ _, coeff_eq_zero_of_degree_lt (lt_of_le_of_lt hlt
       (with_bot.coe_lt_coe.2 (nat.succ_pos _)))))),
 end
+-/
 
 
 variables [semiring S]
